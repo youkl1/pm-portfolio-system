@@ -156,7 +156,34 @@ graph TD
 | `description` | `TEXT` | | 描述 |
 | `cover_image` | `VARCHAR(500)` | | 封面图链接 |
 | `detail_link` | `VARCHAR(500)` | | 详情跳转链接 |
+| `github_link` | `VARCHAR(500)` | | GitHub链接 |
+| `category_id` | `BIGINT` | | 分类ID |
 | `sort` | `INT` | `NOT NULL DEFAULT 0` | 排序 |
+| `created_at` | `DATETIME` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | 创建时间 |
+| `updated_at` | `DATETIME` | `NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 更新时间 |
+
+### 8.3 简历表（pm_resume）
+| 字段名 | 数据类型 | 约束 | 描述 |
+| :--- | :--- | :--- | :--- |
+| `id` | `BIGINT` | `PRIMARY KEY AUTO_INCREMENT` | 简历ID |
+| `name` | `VARCHAR(50)` | `NOT NULL` | 姓名 |
+| `email` | `VARCHAR(100)` | | 邮箱 |
+| `phone` | `VARCHAR(20)` | | 电话 |
+| `education` | `TEXT` | | 教育背景 |
+| `work_experience` | `TEXT` | | 工作经验 |
+| `skills` | `TEXT` | | 技能 |
+| `projects` | `TEXT` | | 项目经验 |
+| `self_introduction` | `TEXT` | | 自我介绍 |
+| `resume_file` | `VARCHAR(500)` | | 简历文件URL |
+| `resume_file_name` | `VARCHAR(255)` | | 简历文件名 |
+| `gender` | `VARCHAR(10)` | | 性别 |
+| `birth_date` | `VARCHAR(20)` | | 出生年月 |
+| `work_start_date` | `VARCHAR(20)` | | 参加工作时间 |
+| `job_status` | `VARCHAR(50)` | | 求职状态 |
+| `user_type` | `VARCHAR(50)` | | 牛人身份 |
+| `wechat` | `VARCHAR(50)` | | 微信号 |
+| `personal_advantage` | `TEXT` | | 个人优势 |
+| `expected_position` | `TEXT` | | 期望职位 |
 | `created_at` | `DATETIME` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | 创建时间 |
 | `updated_at` | `DATETIME` | `NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | 更新时间 |
 
