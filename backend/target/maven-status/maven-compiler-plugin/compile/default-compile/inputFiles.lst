@@ -1,11 +1,17 @@
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\service\ResumeService.java
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\repository\CategoryRepository.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\PmPortfolioHubApplication.java
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\repository\PmResumeRepository.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\common\SwaggerConfig.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\controller\ProjectController.java
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\model\SysCategory.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\model\SysUser.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\common\WebMvcConfig.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\common\ThreadLocalUtil.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\common\CaptchaUtil.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\repository\ProjectRepository.java
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\model\PmResume.java
+D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\controller\ResumeController.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\service\AuthService.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\common\CorsConfig.java
 D:\Code\pm-portfolio-system\backend\src\main\java\com\pmportfolio\hub\service\ProjectService.java

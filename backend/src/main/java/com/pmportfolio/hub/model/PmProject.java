@@ -35,6 +35,10 @@ public class PmProject {
     @Schema(description = "GitHub地址")
     private String githubLink;
     
+    @Column(name = "category_id")
+    @Schema(description = "分类ID")
+    private Long categoryId;
+    
     @Column(name = "sort", nullable = false)
     @Schema(description = "排序值", required = true)
     private Integer sort;

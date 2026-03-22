@@ -1,6 +1,7 @@
 package com.pmportfolio.hub.controller;
 
 import com.pmportfolio.hub.model.PmProject;
+import com.pmportfolio.hub.model.SysCategory;
 import com.pmportfolio.hub.service.ProjectService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,13 +19,30 @@ public class ProjectController {
     
     // 获取作品列表
     @GetMapping
-    public Map<String, Object> getProjects(@RequestParam(required = false) String keyword) {
+    public Map<String, Object> getProjects(@RequestParam(required = false) String keyword, @RequestParam(required = false) Long categoryId) {
         Map<String, Object> response = new HashMap<>();
         try {
-            List<PmProject> projects = projectService.getProjects(keyword);
+            List<PmProject> projects = projectService.getProjects(keyword, categoryId);
             response.put("code", 200);
             response.put("message", "成功");
             response.put("data", projects);
+        } catch (Exception e) {
+            response.put("code", 500);
+            response.put("message", e.getMessage());
+            response.put("data", null);
+        }
+        return response;
+    }
+    
+    // 获取分类列表
+    @GetMapping("/categories")
+    public Map<String, Object> getCategories() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            List<SysCategory> categories = projectService.getCategories();
+            response.put("code", 200);
+            response.put("message", "成功");
+            response.put("data", categories);
         } catch (Exception e) {
             response.put("code", 500);
             response.put("message", e.getMessage());

@@ -41,4 +41,27 @@ public class UploadController {
         }
         return response;
     }
+    
+    // 上传简历文件
+    @PostMapping("/resume")
+    public Map<String, Object> uploadResume(@RequestParam("file") MultipartFile file) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String url = uploadService.uploadResume(file);
+            Map<String, String> data = new HashMap<>();
+            data.put("url", url);
+            response.put("code", 200);
+            response.put("message", "上传成功");
+            response.put("data", data);
+        } catch (IOException e) {
+            response.put("code", 500);
+            response.put("message", "上传失败，请重试");
+            response.put("data", null);
+        } catch (Exception e) {
+            response.put("code", 400);
+            response.put("message", e.getMessage());
+            response.put("data", null);
+        }
+        return response;
+    }
 }

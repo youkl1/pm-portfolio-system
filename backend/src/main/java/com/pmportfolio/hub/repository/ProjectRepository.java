@@ -11,4 +11,8 @@ public interface ProjectRepository extends JpaRepository<PmProject, Long> {
     List<PmProject> findAllByOrderBySortAsc();
     
     List<PmProject> findByTitleContainingOrDescriptionContainingOrderBySortAsc(String title, String description);
+    
+    List<PmProject> findByCategoryIdOrderBySortAsc(Long categoryId);
+    
+    List<PmProject> findByCategoryIdAndTitleContainingOrCategoryIdAndDescriptionContainingOrderBySortAsc(Long categoryId1, String title, Long categoryId2, String description);
 }

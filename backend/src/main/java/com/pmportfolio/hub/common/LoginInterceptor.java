@@ -11,8 +11,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 放行OPTIONS预检请求
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+        
         ThreadLocalUtil.UserInfo userInfo = (ThreadLocalUtil.UserInfo) request.getSession().getAttribute("userInfo");
         if (userInfo == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // 设置401状态码
             response.setContentType("application/json;charset=UTF-8");
             PrintWriter out = response.getWriter();
             Map<String, Object> result = new HashMap<>();

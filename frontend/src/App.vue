@@ -30,38 +30,249 @@
         <h1>产品经理个人作品展示系统</h1>
         <div class="header-actions">
           <span>欢迎，{{ userInfo.username }} ({{ userInfo.role }})</span>
+          <nav class="nav-menu">
+            <button @click="switchTab('projects')" :class="{ active: activeTab === 'projects' }" class="nav-btn">作品管理</button>
+            <button @click="switchTab('resumes')" :class="{ active: activeTab === 'resumes' }" class="nav-btn">个人简历</button>
+          </nav>
           <button @click="logout" class="logout-btn">退出登录</button>
         </div>
       </header>
       
       <main class="main-content">
-        <div class="toolbar">
-          <h2>作品列表</h2>
-          <button v-if="userInfo.role === 'admin'" @click="showAddModal = true" class="add-btn">新增作品</button>
-        </div>
-        
-        <div class="project-grid">
-          <div v-for="project in projects" :key="project.id" class="project-card">
-            <img :src="project.coverImage" alt="封面" class="project-cover">
-            <div class="project-info">
-              <h3>{{ project.title }}</h3>
-              <p>{{ project.description }}</p>
-              <div class="link-container">
-                <a :href="project.detailLink" target="_blank" class="detail-link">查看详情</a>
+        <!-- 作品管理标签页 -->
+        <div v-if="activeTab === 'projects'">
+          <!-- 首页看板 -->
+          <div class="dashboard">
+            <div class="dashboard-card">
+              <div class="dashboard-card-header">
+                <h3>作品统计</h3>
               </div>
-              <div v-if="project.githubLink" class="github-container">
-                <span class="github-label">GitHub:</span>
-                <div class="github-url-container">
-                  <a :href="project.githubLink" target="_blank" class="github-url">{{ project.githubLink }}</a>
-                  <button @click="copyGithubLink(project.githubLink)" class="copy-btn">
-                    <span class="copy-icon">📋</span>
-                  </button>
+              <div class="dashboard-card-body">
+                <div class="dashboard-stats">
+                  <div class="stat-item">
+                    <div class="stat-value">{{ projects.length }}</div>
+                    <div class="stat-label">总作品数</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value">{{ categories.length }}</div>
+                    <div class="stat-label">分类数</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value">{{ getProjectByCategory('核心业务系统') }}</div>
+                    <div class="stat-label">核心业务系统</div>
+                  </div>
+                  <div class="stat-item">
+                    <div class="stat-value">{{ getProjectByCategory('管理支撑系统') }}</div>
+                    <div class="stat-label">管理支撑系统</div>
+                  </div>
                 </div>
               </div>
             </div>
-            <div v-if="userInfo.role === 'admin'" class="project-actions">
-              <button @click="editProject(project)" class="edit-btn">编辑</button>
-              <button @click="showDeleteConfirm(project.id)" class="delete-btn">删除</button>
+          </div>
+          
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <h2>作品列表</h2>
+              <div class="category-filter">
+                <label for="category">分类筛选：</label>
+                <select id="category" v-model="selectedCategoryId" @change="changeCategory(selectedCategoryId)" class="category-select">
+                  <option value="">全部分类</option>
+                  <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
+              </div>
+            </div>
+            <button v-if="userInfo.role === 'admin'" @click="showAddModal = true" class="add-btn">新增作品</button>
+          </div>
+          
+          <div class="project-grid">
+            <div v-for="project in projects" :key="project.id" class="project-card">
+              <div class="project-cover-container">
+                <img :src="project.coverImage" alt="封面" class="project-cover">
+                <div v-if="getCategoryName(project.categoryId)" class="project-category-badge">
+                  {{ getCategoryName(project.categoryId) }}
+                </div>
+              </div>
+              <div class="project-info">
+                <h3 class="project-title">{{ project.title }}</h3>
+                <div class="description-container" :data-description="project.description">
+                  <p class="project-description">{{ project.description }}</p>
+                  <div class="description-tooltip">
+                    <div class="tooltip-content">{{ project.description }}</div>
+                    <button class="tooltip-copy-btn" @click.stop="copyDescription(project.description)">
+                      <span class="copy-icon">📋</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="project-actions-row">
+                  <a :href="project.detailLink" target="_blank" class="detail-link">查看详情</a>
+                </div>
+                <div v-if="project.githubLink" class="github-container">
+                  <div class="github-header">
+                    <span class="github-icon">📂</span>
+                    <span class="github-label">GitHub</span>
+                  </div>
+                  <div class="github-url-container">
+                    <a :href="project.githubLink" target="_blank" class="github-url">{{ project.githubLink }}</a>
+                    <button @click="copyGithubLink(project.githubLink)" class="copy-btn">
+                      <span class="copy-icon">📋</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div v-if="userInfo.role === 'admin'" class="project-admin-actions">
+                <button @click="editProject(project)" class="edit-btn">编辑</button>
+                <button @click="showDeleteConfirm(project.id)" class="delete-btn">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 个人简历标签页 -->
+        <div v-else-if="activeTab === 'resumes'">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <h2>个人简历</h2>
+            </div>
+            <button v-if="userInfo.role === 'admin'" @click="openAddResumeModal" class="add-btn">新增简历</button>
+          </div>
+          
+          <div class="resume-container">
+            <div v-for="resume in resumes" :key="resume.id" class="resume-card">
+              <!-- 简历头部 -->
+              <div class="resume-header">
+                <div class="resume-header-top">
+                  <h3 class="resume-name">{{ resume.name }}</h3>
+                  <div v-if="resume.jobStatus" class="job-status-badge">{{ resume.jobStatus }}</div>
+                </div>
+                <div class="resume-contact">
+                  <div v-if="resume.email" class="contact-item">
+                    <span class="contact-icon">📧</span>
+                    <span class="contact-value">{{ resume.email }}</span>
+                  </div>
+                  <div v-if="resume.phone" class="contact-item">
+                    <span class="contact-icon">📞</span>
+                    <span class="contact-value">{{ resume.phone }}</span>
+                  </div>
+                  <div v-if="resume.wechat" class="contact-item">
+                    <span class="contact-icon">💬</span>
+                    <span class="contact-value">{{ resume.wechat }}</span>
+                  </div>
+                </div>
+                <div class="resume-basic-info">
+                  <div v-if="resume.gender" class="basic-info-item">
+                    <span class="info-label">性别：</span>
+                    <span class="info-value">{{ resume.gender }}</span>
+                  </div>
+                  <div v-if="resume.birthDate" class="basic-info-item">
+                    <span class="info-label">出生年月：</span>
+                    <span class="info-value">{{ resume.birthDate }}</span>
+                  </div>
+                  <div v-if="resume.workStartDate" class="basic-info-item">
+                    <span class="info-label">参加工作时间：</span>
+                    <span class="info-value">{{ resume.workStartDate }}</span>
+                  </div>
+                  <div v-if="resume.userType" class="basic-info-item">
+                    <span class="info-label">身份：</span>
+                    <span class="info-value">{{ resume.userType }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 简历内容 -->
+              <div class="resume-content">
+                <!-- 个人优势 -->
+                <div v-if="resume.personalAdvantage" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">✨</div>
+                    <h4 class="section-title">个人优势</h4>
+                  </div>
+                  <div class="section-content">
+                    <p v-for="(advantage, index) in resume.personalAdvantage.split('\n')" :key="index" class="advantage-item">
+                      {{ advantage }}
+                    </p>
+                  </div>
+                </div>
+                
+                <!-- 教育背景 -->
+                <div v-if="resume.education" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">🎓</div>
+                    <h4 class="section-title">教育背景</h4>
+                  </div>
+                  <div class="section-content">
+                    <p>{{ resume.education }}</p>
+                  </div>
+                </div>
+                
+                <!-- 工作经验 -->
+                <div v-if="resume.workExperience" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">💼</div>
+                    <h4 class="section-title">工作经验</h4>
+                  </div>
+                  <div class="section-content">
+                    <div class="work-experience-list">
+                      <div v-for="(experience, index) in resume.workExperience.split('\n\n')" :key="index" class="work-experience-item">
+                        <p>{{ experience }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 技能 -->
+                <div v-if="resume.skills" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">🛠️</div>
+                    <h4 class="section-title">技能</h4>
+                  </div>
+                  <div class="section-content">
+                    <div class="skills-tag-list">
+                      <span v-for="(skill, index) in resume.skills.split('、')" :key="index" class="skill-tag">
+                        {{ skill }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 期望职位 -->
+                <div v-if="resume.expectedPosition" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">🎯</div>
+                    <h4 class="section-title">期望职位</h4>
+                  </div>
+                  <div class="section-content">
+                    <p v-for="(position, index) in resume.expectedPosition.split('\n')" :key="index" class="position-item">
+                      {{ position }}
+                    </p>
+                  </div>
+                </div>
+                
+                <!-- 简历文件 -->
+                <div v-if="resume.resumeFile" class="resume-section">
+                  <div class="section-header">
+                    <div class="section-icon">📄</div>
+                    <h4 class="section-title">简历文件</h4>
+                  </div>
+                  <div class="section-content">
+                    <a :href="resume.resumeFile" target="_blank" class="resume-file-link">
+                      <span class="file-icon">📁</span>
+                      <span>{{ resume.resumeFileName || '查看简历文件' }}</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 操作按钮 -->
+              <div v-if="userInfo.role === 'admin'" class="resume-actions">
+                <button @click="editResume(resume)" class="edit-btn">
+                  <span class="btn-icon">✏️</span>
+                  <span>编辑</span>
+                </button>
+                <button @click="showDeleteResumeConfirm(resume.id)" class="delete-btn">
+                  <span class="btn-icon">🗑️</span>
+                  <span>删除</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -99,6 +310,13 @@
               <div class="form-group">
                 <label for="githubLink">GitHub地址</label>
                 <input type="url" id="githubLink" v-model="projectForm.githubLink">
+              </div>
+              <div class="form-group">
+                <label for="categoryId">系统分类</label>
+                <select id="categoryId" v-model="projectForm.categoryId" class="category-select">
+                  <option value="">请选择分类</option>
+                  <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
+                </select>
               </div>
               <div class="form-group">
                 <label for="sort">排序</label>
@@ -148,6 +366,143 @@
           </div>
         </div>
       </div>
+      
+      <!-- 新增/编辑简历弹窗 -->
+      <div v-if="showAddResumeModal || showEditResumeModal" class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>{{ showEditResumeModal ? '编辑简历' : '新增简历' }}</h3>
+            <button @click="closeResumeModal" class="close-btn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="saveResume" class="resume-form">
+              <div class="form-group">
+                <label for="resumeName">姓名</label>
+                <input type="text" id="resumeName" v-model="resumeForm.name" required>
+              </div>
+              <div class="form-group">
+                <label for="resumeEmail">邮箱</label>
+                <input type="email" id="resumeEmail" v-model="resumeForm.email">
+              </div>
+              <div class="form-group">
+                <label for="resumePhone">电话</label>
+                <input type="tel" id="resumePhone" v-model="resumeForm.phone">
+              </div>
+              <div class="form-group">
+                <label for="resumeEducation">教育背景</label>
+                <textarea id="resumeEducation" v-model="resumeForm.education"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="resumeWorkExperience">工作经验</label>
+                <textarea id="resumeWorkExperience" v-model="resumeForm.workExperience"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="resumeSkills">技能</label>
+                <textarea id="resumeSkills" v-model="resumeForm.skills"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="resumeProjects">项目经验</label>
+                <textarea id="resumeProjects" v-model="resumeForm.projects"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="resumeSelfIntroduction">自我介绍</label>
+                <textarea id="resumeSelfIntroduction" v-model="resumeForm.selfIntroduction"></textarea>
+              </div>
+              <div class="form-group">
+                <label>简历文件</label>
+                <div class="upload-area" @click="$refs.resumeFileInput.click()">
+                  <input type="file" ref="resumeFileInput" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" @change="handleResumeFileChange" style="display: none;">
+                  <div v-if="resumeForm.resumeFile" class="file-preview">
+                    <div class="file-info">
+                      <a :href="resumeForm.resumeFile" target="_blank">{{ resumeForm.resumeFileName || '查看已上传的文件' }}</a>
+                    </div>
+                    <button v-if="userInfo.role === 'admin'" @click.stop="removeResumeFile" class="delete-file-btn">删除</button>
+                  </div>
+                  <div v-else class="upload-placeholder">点击上传简历文件</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group half">
+                  <label for="resumeGender">性别</label>
+                  <div class="gender-options">
+                    <label class="radio-label">
+                      <input type="radio" v-model="resumeForm.gender" value="男">
+                      <span>男</span>
+                    </label>
+                    <label class="radio-label">
+                      <input type="radio" v-model="resumeForm.gender" value="女">
+                      <span>女</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="form-group half">
+                  <label for="resumeBirthDate">出生年月</label>
+                  <input type="text" id="resumeBirthDate" v-model="resumeForm.birthDate" placeholder="例如：1992-12">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group half">
+                  <label for="resumeWorkStartDate">参加工作时间</label>
+                  <input type="text" id="resumeWorkStartDate" v-model="resumeForm.workStartDate" placeholder="例如：2016-03">
+                </div>
+                <div class="form-group half">
+                  <label for="resumeJobStatus">求职状态</label>
+                  <select id="resumeJobStatus" v-model="resumeForm.jobStatus">
+                    <option value="">请选择</option>
+                    <option value="离职-随时到岗">离职-随时到岗</option>
+                    <option value="在职-考虑机会">在职-考虑机会</option>
+                    <option value="在职-不考虑">在职-不考虑</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group half">
+                  <label for="resumeUserType">牛人身份</label>
+                  <select id="resumeUserType" v-model="resumeForm.userType">
+                    <option value="">请选择</option>
+                    <option value="职场人">职场人</option>
+                    <option value="学生">学生</option>
+                    <option value="自由职业">自由职业</option>
+                  </select>
+                </div>
+                <div class="form-group half">
+                  <label for="resumeWechat">微信号</label>
+                  <input type="text" id="resumeWechat" v-model="resumeForm.wechat" placeholder="选填">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="resumePersonalAdvantage">个人优势</label>
+                <textarea id="resumePersonalAdvantage" v-model="resumeForm.personalAdvantage" rows="4"></textarea>
+              </div>
+              <div class="form-group">
+                <label for="resumeExpectedPosition">期望职位</label>
+                <textarea id="resumeExpectedPosition" v-model="resumeForm.expectedPosition" rows="2"></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="button" @click="closeResumeModal" class="cancel-btn">取消</button>
+                <button type="submit" class="save-btn">保存</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 删除简历确认弹窗 -->
+      <div v-if="showDeleteResumeModal" class="modal-overlay">
+        <div class="modal delete-modal">
+          <div class="modal-header">
+            <h3>确认删除</h3>
+            <button @click="closeDeleteResumeModal" class="close-btn">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p class="delete-message">确定要删除这个简历吗？此操作不可撤销。</p>
+            <div class="form-actions">
+              <button type="button" @click="closeDeleteResumeModal" class="cancel-btn">取消</button>
+              <button type="button" @click="confirmDeleteResume" class="delete-confirm-btn">确认删除</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -162,6 +517,19 @@ const apiClient = axios.create({
   withCredentials: true
 })
 
+// 添加响应拦截器处理未登录情况
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response && error.response.status === 401) {
+      // 未登录，跳转到登录页面
+      localStorage.removeItem('userInfo')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
 export default {
   name: 'App',
   data() {
@@ -175,6 +543,8 @@ export default {
       captchaImage: '',
       errorMessage: '',
       projects: [],
+      categories: [],
+      selectedCategoryId: null,
       showAddModal: false,
       showEditModal: false,
       showDeleteModal: false,
@@ -182,12 +552,40 @@ export default {
       successMessage: '',
       currentProjectId: null,
       projectForm: {
-        title: '',
+        title: 'test',
         description: '',
         coverImage: '',
         detailLink: '',
         githubLink: '',
+        categoryId: null,
         sort: 0
+      },
+      // 个人简历相关
+      activeTab: 'projects',
+      resumes: [],
+      showAddResumeModal: false,
+      showEditResumeModal: false,
+      showDeleteResumeModal: false,
+      currentResumeId: null,
+      resumeForm: {
+        name: '',
+        email: '',
+        phone: '',
+        education: '',
+        workExperience: '',
+        skills: '',
+        projects: '',
+        selfIntroduction: '',
+        resumeFile: '',
+        resumeFileName: '',
+        gender: '',
+        birthDate: '',
+        workStartDate: '',
+        jobStatus: '',
+        userType: '',
+        wechat: '',
+        personalAdvantage: '',
+        expectedPosition: ''
       }
     }
   },
@@ -196,7 +594,9 @@ export default {
     const storedUser = localStorage.getItem('userInfo')
     if (storedUser) {
       this.userInfo = JSON.parse(storedUser)
+      this.getCategories()
       this.getProjects()
+      this.getResumes()
     } else {
       // 未登录时获取验证码
       this.getCaptcha()
@@ -225,6 +625,7 @@ export default {
           this.userInfo = response.data.data
           localStorage.setItem('userInfo', JSON.stringify(this.userInfo))
           this.errorMessage = ''
+          this.getCategories()
           this.getProjects()
         } else {
           this.errorMessage = response.data.message
@@ -245,10 +646,26 @@ export default {
       this.getCaptcha()
     },
     
+    // 获取分类列表
+    async getCategories() {
+      try {
+        const response = await apiClient.get('/api/projects/categories')
+        if (response.data.code === 200) {
+          this.categories = response.data.data
+        }
+      } catch (error) {
+        console.error('获取分类列表失败:', error)
+      }
+    },
+    
     // 获取作品列表
     async getProjects() {
       try {
-        const response = await apiClient.get('/api/projects')
+        const params = {}
+        if (this.selectedCategoryId) {
+          params.categoryId = this.selectedCategoryId
+        }
+        const response = await apiClient.get('/api/projects', { params })
         console.log('获取到的作品列表:', response.data.data)
         if (response.data.code === 200) {
           this.projects = response.data.data
@@ -256,6 +673,12 @@ export default {
       } catch (error) {
         console.error('获取作品列表失败:', error)
       }
+    },
+    
+    // 切换分类
+    changeCategory(categoryId) {
+      this.selectedCategoryId = categoryId
+      this.getProjects()
     },
     
     // 触发文件选择
@@ -293,6 +716,7 @@ export default {
         coverImage: project.coverImage,
         detailLink: project.detailLink,
         githubLink: project.githubLink || '',
+        categoryId: project.categoryId || null,
         sort: project.sort
       }
       this.showEditModal = true
@@ -358,6 +782,7 @@ export default {
         coverImage: '',
         detailLink: '',
         githubLink: '',
+        categoryId: null,
         sort: 0
       }
     },
@@ -378,15 +803,199 @@ export default {
         this.successMessage = '复制失败，请手动复制'
         this.showSuccessModal = true
       })
+    },
+    
+    // 复制项目描述
+    copyDescription(description) {
+      navigator.clipboard.writeText(description).then(() => {
+        this.successMessage = '项目描述已复制到剪贴板！'
+        this.showSuccessModal = true
+      }).catch(err => {
+        console.error('复制失败:', err)
+        this.successMessage = '复制失败，请手动复制'
+        this.showSuccessModal = true
+      })
+    },
+    
+    // 根据分类ID获取分类名称
+    getCategoryName(categoryId) {
+      if (!categoryId) return ''
+      const category = this.categories.find(cat => cat.id === categoryId)
+      return category ? category.name : ''
+    },
+    
+    // 根据分类名称获取作品数量
+    getProjectByCategory(categoryName) {
+      const category = this.categories.find(cat => cat.name === categoryName)
+      if (!category) return 0
+      return this.projects.filter(project => project.categoryId === category.id).length
+    },
+    
+    // 获取个人简历列表
+    async getResumes() {
+      try {
+        const response = await apiClient.get('/api/resumes')
+        if (response.data.code === 200) {
+          this.resumes = response.data.data
+        }
+      } catch (error) {
+        console.error('获取个人简历列表失败:', error)
+      }
+    },
+    
+    // 打开新增简历弹窗
+    openAddResumeModal() {
+      this.resumeForm = {
+        name: '',
+        email: '',
+        phone: '',
+        education: '',
+        workExperience: '',
+        skills: '',
+        projects: '',
+        selfIntroduction: '',
+        resumeFile: '',
+        resumeFileName: ''
+      }
+      this.showAddResumeModal = true
+    },
+    
+    // 打开编辑简历弹窗
+    editResume(resume) {
+      this.currentResumeId = resume.id
+      this.resumeForm = {
+        name: resume.name,
+        email: resume.email,
+        phone: resume.phone,
+        education: resume.education,
+        workExperience: resume.workExperience,
+        skills: resume.skills,
+        projects: resume.projects,
+        selfIntroduction: resume.selfIntroduction,
+        resumeFile: resume.resumeFile,
+        resumeFileName: resume.resumeFileName || '简历文件',
+        gender: resume.gender,
+        birthDate: resume.birthDate,
+        workStartDate: resume.workStartDate,
+        jobStatus: resume.jobStatus,
+        userType: resume.userType,
+        wechat: resume.wechat,
+        personalAdvantage: resume.personalAdvantage,
+        expectedPosition: resume.expectedPosition
+      }
+      this.showEditResumeModal = true
+    },
+    
+    // 保存简历
+    async saveResume() {
+      try {
+        let response
+        if (this.showEditResumeModal) {
+          response = await apiClient.put(`/api/resumes/${this.currentResumeId}`, this.resumeForm)
+        } else {
+          response = await apiClient.post('/api/resumes', this.resumeForm)
+        }
+        if (response.data.code === 200) {
+          this.closeResumeModal()
+          this.getResumes()
+        }
+      } catch (error) {
+        console.error('保存个人简历失败:', error)
+      }
+    },
+    
+    // 显示删除简历确认弹窗
+    showDeleteResumeConfirm(id) {
+      this.currentResumeId = id
+      this.showDeleteResumeModal = true
+    },
+    
+    // 关闭简历弹窗
+    closeResumeModal() {
+      this.showAddResumeModal = false
+      this.showEditResumeModal = false
+      this.currentResumeId = null
+      this.resumeForm = {
+        name: '',
+        email: '',
+        phone: '',
+        education: '',
+        workExperience: '',
+        skills: '',
+        projects: '',
+        selfIntroduction: '',
+        resumeFile: ''
+      }
+    },
+    
+    // 关闭删除简历确认弹窗
+    closeDeleteResumeModal() {
+      this.showDeleteResumeModal = false
+      this.currentResumeId = null
+    },
+    
+    // 确认删除简历
+    async confirmDeleteResume() {
+      try {
+        const response = await apiClient.delete(`/api/resumes/${this.currentResumeId}`)
+        if (response.data.code === 200) {
+          this.getResumes()
+          this.closeDeleteResumeModal()
+          this.successMessage = '删除成功！'
+          this.showSuccessModal = true
+        }
+      } catch (error) {
+        console.error('删除个人简历失败:', error)
+        this.successMessage = '删除失败，请重试'
+        this.showSuccessModal = true
+      }
+    },
+    
+    // 切换标签页
+    switchTab(tab) {
+      this.activeTab = tab
+      if (tab === 'resumes') {
+        this.getResumes()
+      }
+    },
+    
+    // 上传简历文件
+    async handleResumeFileChange(event) {
+      const file = event.target.files[0]
+      if (file) {
+        const formData = new FormData()
+        formData.append('file', file)
+        try {
+          const response = await apiClient.post('/api/upload/resume', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          })
+          if (response.data.code === 200) {
+            this.resumeForm.resumeFile = response.data.data.url
+            this.resumeForm.resumeFileName = file.name
+          }
+        } catch (error) {
+          console.error('上传简历文件失败:', error)
+        }
+      }
+    },
+    
+    // 删除简历文件
+    removeResumeFile() {
+      this.resumeForm.resumeFile = ''
+      this.resumeForm.resumeFileName = ''
     }
   }
 }
 </script>
 
 <style scoped>
+/* 全局样式 */
 .app {
   min-height: 100vh;
-  background-color: #f8f9fa;
+  background-color: #f5f7fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* 登录页面 */
@@ -396,26 +1005,31 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 20px;
+  padding: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .login-container h1 {
-  color: #007bff;
-  margin-bottom: 30px;
-  font-size: 24px;
+  color: white;
+  margin-bottom: 32px;
+  font-size: 28px;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .login-form {
   background-color: white;
-  padding: 30px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  animation: slideIn 0.3s ease-out;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .form-group label {
@@ -423,20 +1037,31 @@ export default {
   margin-bottom: 8px;
   font-weight: 500;
   color: #212529;
+  font-size: 14px;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
   font-size: 16px;
+  transition: all 0.2s ease;
+  background-color: #fafafa;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #165dff;
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+  background-color: white;
 }
 
 .captcha-container {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -445,37 +1070,46 @@ export default {
 }
 
 .captcha-image {
-  width: 100px;
-  height: 40px;
+  width: 120px;
+  height: 48px;
   cursor: pointer;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.captcha-image:hover {
+  border-color: #165dff;
 }
 
 .form-group textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 120px;
 }
 
 .login-btn {
   width: 100%;
-  padding: 12px;
-  background-color: #007bff;
+  padding: 14px;
+  background-color: #165dff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.2s ease;
+  margin-top: 8px;
 }
 
 .login-btn:hover {
-  background-color: #0069d9;
+  background-color: #0a46d4;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
 }
 
 .error-message {
-  margin-top: 15px;
-  color: #dc3545;
+  margin-top: 16px;
+  color: #f53f3f;
   font-size: 14px;
   text-align: center;
 }
@@ -486,23 +1120,25 @@ export default {
 }
 
 .header {
-  background-color: #007bff;
+  background: linear-gradient(135deg, #165dff 0%, #0f46c7 100%);
   color: white;
-  padding: 20px;
+  padding: 24px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.15);
 }
 
 .header h1 {
   margin: 0;
-  font-size: 20px;
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 16px;
 }
 
 .logout-btn {
@@ -510,122 +1146,373 @@ export default {
   color: white;
   border: none;
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .logout-btn:hover {
   background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
 }
 
 .main-content {
+  padding: 32px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+/* 首页看板 */
+.dashboard {
+  margin-bottom: 32px;
+}
+
+.dashboard-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.dashboard-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-card-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f0f2f5;
+  background-color: #f8f9fa;
+}
+
+.dashboard-card-header h3 {
+  margin: 0;
+  color: #212529;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.dashboard-card-body {
+  padding: 24px;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.stat-item {
+  text-align: center;
   padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  background-color: #f0f5ff;
+  transform: translateY(-2px);
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #165dff;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .dashboard-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  
+  .stat-item {
+    padding: 16px;
+  }
+  
+  .stat-value {
+    font-size: 24px;
+  }
 }
 
 .toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .toolbar h2 {
   margin: 0;
   color: #212529;
-  font-size: 18px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.category-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-filter label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4e5969;
+}
+
+.category-select {
+  padding: 8px 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #212529;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 200px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.category-select:hover {
+  border-color: #165dff;
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+}
+
+.category-select:focus {
+  outline: none;
+  border-color: #165dff;
+  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.2);
 }
 
 .add-btn {
-  background-color: #28a745;
+  background-color: #00b42a;
   color: white;
   border: none;
   padding: 10px 20px;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 180, 42, 0.2);
 }
 
 .add-btn:hover {
-  background-color: #218838;
+  background-color: #00a126;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 180, 42, 0.25);
 }
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
 }
 
 .project-card {
   background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  transition: transform 0.3s, box-shadow 0.3s;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .project-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.project-cover-container {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
 }
 
 .project-cover {
   width: 100%;
-  height: 200px;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.project-card:hover .project-cover {
+  transform: scale(1.05);
+}
+
+.project-category-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background-color: rgba(22, 93, 255, 0.9);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .project-info {
-  padding: 15px;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.project-info h3 {
-  margin: 0 0 10px 0;
+.project-title {
+  margin: 0 0 12px 0;
   color: #212529;
-  font-size: 16px;
-}
-
-.project-info p {
-  margin: 0 0 15px 0;
-  color: #6c757d;
-  font-size: 14px;
+  font-size: 18px;
+  font-weight: 600;
   line-height: 1.4;
 }
 
-.link-container {
-  margin: 12px 0;
+.project-description {
+  margin: 0 0 16px 0;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.description-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.description-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-width: 400px;
+  background-color: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.description-container:hover .description-tooltip {
+  display: flex;
+}
+
+.tooltip-content {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.tooltip-copy-btn {
+  align-self: flex-end;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.tooltip-copy-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .description-tooltip {
+    max-width: 100%;
+    left: 0;
+    right: 0;
+  }
+}
+
+.project-actions-row {
+  margin-bottom: 16px;
 }
 
 .detail-link {
-  color: #165DFF;
+  color: #165dff;
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
   border-radius: 4px;
 }
 
 .detail-link:hover {
-  color: #0A46D4;
-  text-decoration: none;
-  background-color: #F0F5FF;
+  color: #0a46d4;
+  background-color: #f0f5ff;
 }
 
 .github-container {
-  margin-top: 12px;
-  padding: 12px;
-  background-color: #FAFAFA;
+  background-color: #f8f9fa;
   border-radius: 8px;
-  border: 1px solid #F0F2F5;
+  padding: 16px;
+  border: 1px solid #e9ecef;
+}
+
+.github-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.github-icon {
+  font-size: 16px;
 }
 
 .github-label {
-  display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #86909C;
-  margin-bottom: 8px;
+  color: #6c757d;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -634,15 +1521,15 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-  background-color: #FFFFFF;
-  padding: 8px 12px;
+  background-color: white;
+  padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid #E5E6EB;
+  border: 1px solid #dee2e6;
 }
 
 .github-url {
   flex: 1;
-  color: #24292E;
+  color: #24292e;
   text-decoration: none;
   font-size: 13px;
   font-family: 'Courier New', monospace;
@@ -660,7 +1547,7 @@ export default {
   background: none;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 4px 8px;
   border-radius: 4px;
   transition: all 0.2s ease;
   display: flex;
@@ -669,7 +1556,7 @@ export default {
 }
 
 .copy-btn:hover {
-  background-color: #F0F2F5;
+  background-color: #e9ecef;
   transform: translateY(-1px);
 }
 
@@ -677,10 +1564,10 @@ export default {
   font-size: 14px;
 }
 
-.project-actions {
-  padding: 0 15px 15px;
+.project-admin-actions {
+  padding: 0 20px 20px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 .edit-btn {
@@ -688,29 +1575,39 @@ export default {
   background-color: #ffc107;
   color: #212529;
   border: none;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(255, 193, 7, 0.2);
 }
 
 .edit-btn:hover {
   background-color: #e0a800;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(255, 193, 7, 0.25);
 }
 
 .delete-btn {
   flex: 1;
-  background-color: #dc3545;
+  background-color: #f53f3f;
   color: white;
   border: none;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 10px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 4px rgba(245, 63, 63, 0.2);
 }
 
 .delete-btn:hover {
-  background-color: #c82333;
+  background-color: #e53935;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(245, 63, 63, 0.25);
 }
 
 /* 弹窗 */
@@ -735,7 +1632,7 @@ export default {
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
   animation: slideIn 0.3s ease-in-out;
   outline: none;
 }
@@ -768,7 +1665,7 @@ export default {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background-color: #00B42A;
+  background-color: #00b42a;
   color: white;
   display: flex;
   align-items: center;
@@ -776,6 +1673,7 @@ export default {
   font-size: 32px;
   font-weight: bold;
   margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 180, 42, 0.3);
 }
 
 .success-message {
@@ -788,7 +1686,7 @@ export default {
 
 .delete-confirm-btn {
   padding: 12px 24px;
-  background-color: #F53F3F;
+  background-color: #f53f3f;
   color: white;
   border: none;
   border-radius: 8px;
@@ -796,10 +1694,11 @@ export default {
   transition: all 0.2s ease;
   font-size: 14px;
   font-weight: 500;
+  box-shadow: 0 2px 4px rgba(245, 63, 63, 0.2);
 }
 
 .delete-confirm-btn:hover {
-  background-color: #E53935;
+  background-color: #e53935;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(245, 63, 63, 0.2);
 }
@@ -830,7 +1729,7 @@ export default {
 
 .modal-header {
   padding: 24px;
-  border-bottom: 1px solid #F0F2F5;
+  border-bottom: 1px solid #f0f2f5;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -848,7 +1747,7 @@ export default {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #86909C;
+  color: #86909c;
   transition: all 0.2s ease;
   padding: 0;
   width: 24px;
@@ -861,7 +1760,7 @@ export default {
 
 .close-btn:hover {
   color: #212529;
-  background-color: #F0F2F5;
+  background-color: #f0f2f5;
 }
 
 .modal-body {
@@ -873,18 +1772,18 @@ export default {
 }
 
 .upload-area {
-  border: 2px dashed #DCDFE6;
+  border: 2px dashed #e4e7ed;
   border-radius: 8px;
   padding: 32px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
-  background-color: #FAFAFA;
+  background-color: #fafafa;
 }
 
 .upload-area:hover {
-  border-color: #165DFF;
-  background-color: #F0F5FF;
+  border-color: #165dff;
+  background-color: #f0f5ff;
 }
 
 .preview-image {
@@ -896,8 +1795,52 @@ export default {
 }
 
 .upload-placeholder {
-  color: #86909C;
+  color: #86909c;
   font-size: 14px;
+}
+
+.file-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.file-info {
+  flex: 1;
+}
+
+.file-info a {
+  color: #165dff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.file-info a:hover {
+  color: #0a46d4;
+  text-decoration: underline;
+}
+
+.delete-file-btn {
+  background-color: #f53f3f;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.delete-file-btn:hover {
+  background-color: #e53935;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(245, 63, 63, 0.2);
 }
 
 .form-actions {
@@ -906,14 +1849,14 @@ export default {
   justify-content: flex-end;
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid #F0F2F5;
+  border-top: 1px solid #f0f2f5;
 }
 
 .cancel-btn {
   padding: 12px 24px;
-  background-color: #FFFFFF;
-  color: #4E5969;
-  border: 1px solid #DCDFE6;
+  background-color: white;
+  color: #4e5969;
+  border: 1px solid #dcdfe6;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -922,13 +1865,13 @@ export default {
 }
 
 .cancel-btn:hover {
-  background-color: #F5F7FA;
-  border-color: #C0C4CC;
+  background-color: #f5f7fa;
+  border-color: #c0c4cc;
 }
 
 .save-btn {
   padding: 12px 24px;
-  background-color: #165DFF;
+  background-color: #165dff;
   color: white;
   border: none;
   border-radius: 8px;
@@ -936,10 +1879,11 @@ export default {
   transition: all 0.2s ease;
   font-size: 14px;
   font-weight: 500;
+  box-shadow: 0 2px 4px rgba(22, 93, 255, 0.2);
 }
 
 .save-btn:hover {
-  background-color: #0A46D4;
+  background-color: #0a46d4;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
 }
@@ -953,21 +1897,574 @@ export default {
   .header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+    padding: 16px 24px;
+  }
+  
+  .main-content {
+    padding: 24px;
   }
   
   .toolbar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
   }
   
   .project-grid {
     grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .project-cover-container {
+    height: 180px;
+  }
+  
+  .project-info {
+    padding: 16px;
+  }
+  
+  .project-admin-actions {
+    padding: 0 16px 16px;
   }
   
   .modal {
     margin: 20px;
+  }
+}
+
+/* 导航菜单 */
+.nav-menu {
+  display: flex;
+  gap: 8px;
+  margin-left: 24px;
+}
+
+.nav-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.nav-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.nav-btn.active {
+  background-color: white;
+  color: #165dff;
+}
+
+/* 个人简历 */
+.resume-container {
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+}
+
+.resume-card {
+  background-color: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  max-width: 800px;
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.resume-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+/* 简历头部 */
+.resume-header {
+  padding: 32px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #dee2e6;
+}
+
+.resume-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.resume-name {
+  margin: 0;
+  color: #212529;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.job-status-badge {
+  background-color: #165dff;
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.2);
+}
+
+.resume-contact {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #495057;
+}
+
+.contact-icon {
+  font-size: 16px;
+}
+
+.contact-value {
+  font-weight: 500;
+  color: #212529;
+}
+
+.resume-basic-info {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.basic-info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.info-label {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #212529;
+  font-weight: 500;
+}
+
+/* 简历内容 */
+.resume-content {
+  padding: 32px;
+}
+
+.resume-section {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.resume-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.section-icon {
+  font-size: 20px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f5ff;
+  border-radius: 8px;
+  color: #165dff;
+}
+
+.section-title {
+  margin: 0;
+  color: #212529;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.section-content {
+  color: #495057;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 个人优势 */
+.advantage-item {
+  margin: 0 0 12px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.advantage-item:last-child {
+  margin-bottom: 0;
+}
+
+.advantage-item::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #165dff;
+  font-weight: bold;
+}
+
+/* 工作经验 */
+.work-experience-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.work-experience-item {
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border-left: 4px solid #165dff;
+}
+
+.work-experience-item p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* 技能 */
+.skills-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.skill-tag {
+  background-color: #f0f5ff;
+  color: #165dff;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.skill-tag:hover {
+  background-color: #165dff;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* 期望职位 */
+.position-item {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.position-item:last-child {
+  margin-bottom: 0;
+}
+
+.position-item::before {
+  content: "🎯";
+  position: absolute;
+  left: 0;
+  font-size: 14px;
+}
+
+/* 简历文件 */
+.resume-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #165dff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 20px;
+  background-color: #f0f5ff;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.resume-file-link:hover {
+  background-color: #165dff;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.2);
+}
+
+.file-icon {
+  font-size: 16px;
+}
+
+/* 操作按钮 */
+.resume-actions {
+  padding: 0 32px 32px;
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.resume-actions .edit-btn,
+.resume-actions .delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.resume-actions .edit-btn {
+  background-color: #ffc107;
+  color: #212529;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+}
+
+.resume-actions .edit-btn:hover {
+  background-color: #e0a800;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.resume-actions .delete-btn {
+  background-color: #f53f3f;
+  color: white;
+  box-shadow: 0 2px 8px rgba(245, 63, 63, 0.2);
+}
+
+.resume-actions .delete-btn:hover {
+  background-color: #e53935;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 63, 63, 0.3);
+}
+
+.btn-icon {
+  font-size: 16px;
+}
+
+.file-preview {
+  padding: 12px;
+  background-color: #f0f5ff;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.file-preview a {
+  color: #165dff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.file-preview a:hover {
+  text-decoration: underline;
+}
+
+/* 表单行 */
+.form-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.form-group.half {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* 性别选择 */
+.gender-options {
+  display: flex;
+  gap: 24px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #212529;
+}
+
+.radio-label input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #165dff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .resume-header {
+    padding: 24px;
+  }
+  
+  .resume-header-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .resume-contact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .resume-basic-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .resume-content {
+    padding: 24px;
+  }
+  
+  .resume-actions {
+    padding: 0 24px 24px;
+    flex-direction: column;
+  }
+  
+  .resume-actions .edit-btn,
+  .resume-actions .delete-btn {
+    justify-content: center;
+  }
+  
+  .skills-tag-list {
+    gap: 8px;
+  }
+  
+  .skill-tag {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .nav-menu {
+    margin-left: 0;
+    margin-top: 12px;
+  }
+  
+  .resume-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .resume-header,
+  .resume-content,
+  .resume-actions {
+    padding: 16px;
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  .app {
+    background-color: #1a1a1a;
+  }
+  
+  .login-form {
+    background-color: #2d2d2d;
+  }
+  
+  .form-group label {
+    color: #e0e0e0;
+  }
+  
+  .form-group input,
+  .form-group textarea {
+    background-color: #3d3d3d;
+    border-color: #4d4d4d;
+    color: #e0e0e0;
+  }
+  
+  .project-card,
+  .resume-card {
+    background-color: #2d2d2d;
+  }
+  
+  .project-title,
+  .resume-name,
+  .section-title {
+    color: #e0e0e0;
+  }
+  
+  .project-description,
+  .section-content,
+  .contact-value {
+    color: #b0b0b0;
+  }
+  
+  .contact-label {
+    color: #86909c;
+  }
+  
+  .github-container {
+    background-color: #3d3d3d;
+    border-color: #4d4d4d;
+  }
+  
+  .github-url-container {
+    background-color: #4d4d4d;
+    border-color: #5d5d5d;
+  }
+  
+  .github-url {
+    color: #e0e0e0;
+  }
+  
+  .modal {
+    background-color: #2d2d2d;
+  }
+  
+  .modal-header h3 {
+    color: #e0e0e0;
+  }
+  
+  .delete-message,
+  .success-message {
+    color: #e0e0e0;
+  }
+  
+  .resume-header {
+    background-color: #3d3d3d;
+    border-bottom-color: #4d4d4d;
+  }
+  
+  .file-preview {
+    background-color: #3d3d3d;
   }
 }
 </style>
