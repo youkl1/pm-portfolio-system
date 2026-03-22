@@ -1,0 +1,19 @@
+{
+  // 1. AI工具命令白名单（修复类型错误：原生数组，无多余斜杠）
+  "AI.toolcall.v2.command.allowList": ["npm", "mvn"],
+
+  // 2. Maven核心路径配置（补全完整路径，无截断）
+  "maven.executable.path": "C:\\Program Files\\maven\\apache-maven-3.9.14\\bin\\mvn.cmd",
+  "maven.settingsFile": "C:\\Program Files\\maven\\apache-maven-3.9.14\\conf\\settings.xml",
+  "maven.executable.preferMavenWrapper": false,
+
+
+  "maven.terminal.useJavaHome": true,
+
+  // 5. 保留你原有的git-commit配置（完全不变）
+  "[git-commit]": {
+    "editor.rulers": [50, 72],
+    "editor.wordWrap": "off",
+    "workbench.editor.restoreViewState": false
+  }
+}
