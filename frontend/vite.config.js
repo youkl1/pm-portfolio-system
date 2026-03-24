@@ -10,6 +10,11 @@ export default defineConfig({
       '/api': {
         target: 'http://8.148.235.131:8080',
         changeOrigin: true
+      },
+      '/coze-api': {
+        target: 'https://s9y6dkw5z8.coze.site',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/coze-api/, '')
       }
     }
   }

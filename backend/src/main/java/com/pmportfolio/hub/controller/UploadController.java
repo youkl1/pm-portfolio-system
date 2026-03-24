@@ -64,4 +64,32 @@ public class UploadController {
         }
         return response;
     }
+    
+    // 从URL上传封面图片
+    @PostMapping("/cover-from-url")
+    public Map<String, Object> uploadCoverFromUrl(@org.springframework.web.bind.annotation.RequestBody Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String imageUrl = request.get("imageUrl");
+            if (imageUrl == null || imageUrl.isEmpty()) {
+                throw new RuntimeException("图片URL不能为空");
+            }
+            
+            String url = uploadService.uploadCoverFromUrl(imageUrl);
+            Map<String, String> data = new HashMap<>();
+            data.put("url", url);
+            response.put("code", 200);
+            response.put("message", "上传成功");
+            response.put("data", data);
+        } catch (IOException e) {
+            response.put("code", 500);
+            response.put("message", "上传失败，请重试");
+            response.put("data", null);
+        } catch (Exception e) {
+            response.put("code", 400);
+            response.put("message", e.getMessage());
+            response.put("data", null);
+        }
+        return response;
+    }
 }

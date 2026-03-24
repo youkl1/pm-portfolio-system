@@ -300,7 +300,12 @@
             <form @submit.prevent="saveProject" class="project-form">
               <div class="form-group">
                 <label for="title">标题</label>
-                <input type="text" id="title" v-model="projectForm.title" required>
+                <div class="input-with-button">
+                  <input type="text" id="title" v-model="projectForm.title" required>
+                  <button type="button" @click="generateTitle" class="ai-button" :disabled="isGeneratingTitle">
+                    {{ isGeneratingTitle ? '生成中...' : 'AI' }}
+                  </button>
+                </div>
               </div>
               <div class="form-group">
                 <label for="description">描述</label>
@@ -373,6 +378,46 @@
             </div>
             <div class="form-actions">
               <button type="button" @click="closeSuccessModal" class="save-btn">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Coze结果弹窗 -->
+      <div v-if="showCozeModal" class="modal-overlay">
+        <div class="modal coze-modal">
+          <div class="modal-header">
+            <h3>AI生成结果</h3>
+            <button @click="!isGeneratingTitle && (showCozeModal = false)" :disabled="isGeneratingTitle" class="close-btn" :class="{ disabled: isGeneratingTitle }">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="coze-result">
+              <div class="coze-section">
+                <h4>项目简介</h4>
+                <div class="coze-content">
+                  {{ cozeResult.projectIntro }}
+                  <div v-if="isGeneratingTitle" class="loading-indicator">
+                    <div class="loading-spinner"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="coze-section">
+                <h4>封面图片</h4>
+                <div class="coze-image-container">
+                  <img v-if="cozeResult.coverImage" :src="cozeResult.coverImage" alt="封面图片" class="coze-image">
+                  <div v-else class="coze-image-placeholder">无图片</div>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" @click="!isGeneratingTitle && (showCozeModal = false)" :disabled="isGeneratingTitle" class="cancel-btn" :class="{ disabled: isGeneratingTitle }">
+                取消
+              </button>
+              <button type="button" @click="confirmCozeResult" :disabled="isGeneratingTitle" class="save-btn" :class="{ disabled: isGeneratingTitle }">
+                确定
+              </button>
             </div>
           </div>
         </div>
@@ -563,6 +608,12 @@ export default {
       showSuccessModal: false,
       successMessage: '',
       currentProjectId: null,
+      isGeneratingTitle: false,
+      showCozeModal: false,
+      cozeResult: {
+        projectIntro: '',
+        coverImage: ''
+      },
       projectForm: {
         title: 'test',
         description: '',
@@ -605,10 +656,16 @@ export default {
     // 检查本地存储中的用户信息
     const storedUser = localStorage.getItem('userInfo')
     if (storedUser) {
-      this.userInfo = JSON.parse(storedUser)
-      this.getCategories()
-      this.getProjects()
-      this.getResumes()
+      try {
+        this.userInfo = JSON.parse(storedUser)
+        this.getCategories()
+        this.getProjects()
+        this.getResumes()
+      } catch (error) {
+        console.error('解析用户信息失败:', error)
+        localStorage.removeItem('userInfo')
+        this.getCaptcha()
+      }
     } else {
       // 未登录时获取验证码
       this.getCaptcha()
@@ -842,6 +899,253 @@ export default {
         this.successMessage = '复制失败，请手动复制'
         this.showSuccessModal = true
       })
+    },
+    
+    // AI生成项目信息
+    async generateTitle() {
+      this.isGeneratingTitle = true
+      // 直接显示弹窗
+      this.showCozeModal = true
+      // 清空之前的结果
+      this.cozeResult = {
+        projectIntro: 'AI正在生成项目信息...',
+        coverImage: ''
+      }
+      
+      try {
+        const url = "/coze-api/stream_run";
+        const headers = {
+          "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjJlYzY4MDQ4LTUwN2MtNDgzOS1hZmQxLTM1YmJhODcyMmRkZCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbIjFiUTlaT1hRRmJ3cDJ0QXRiaTQxb1lVRmJ2SXNBOTIxIl0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzc0MzU0NzEwLCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjIwNzUwMjM3MzAwMTYyNTc5Iiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjIwNzk1NDU0MTM3MDQwOTM4In0.Qxg97tC8NoNGs7Ddk4rle1MsTvj1uLPyIRRSEw0otqgaZULPoLRKX7ZoqJyviP8WKBkHubQxVh_FT9G88TkRR4yXmm1M4HYFxAxg117QS7rxqvpYw5MWBkmfSVKMnP66qQU2OGpMrbPfaJbosfAP8e80DjtVR0Kl9V4CSB1JSogebgWMCzf4cI_3UNIjNgBGXO5WrhM5NWzOrtskPrwE2vU5kaLol0Wx1azp3s0cjW91Y1cAkUiaGeRuozFgi8pFeTXKoxVlc4fw2z-O8qej9TWeG-dJPtf_YM-EW4kDidDL1Z_z6FkjPsnv88xTLRrGJ4EEoPQTPFzK66rE514sjw",
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream"
+        };
+        
+        // 将标题作为参数传入
+        const prompt = this.projectForm.title || "为产品经理个人作品生成项目信息";
+        
+        // 增加请求时长
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 120000); // 120秒超时
+        
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            "content": {
+              "query": {
+                "prompt": [
+                  {
+                    "type": "text",
+                    "content": {
+                      "text": prompt
+                    }
+                  }
+                ]
+              }
+            },
+            "type": "query",
+            "session_id": "tY0VUHcfW9yADT5sajLUx",
+            "project_id": "7620746694535381034"
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          const errText = await res.text();
+          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+          return;
+        }
+        
+        if (!res.body) {
+          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+          return;
+        }
+        
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullContent = "";
+        let lastUpdateTime = 0;
+        const updateInterval = 100; // 限制更新频率
+        
+        while (true) {
+          try {
+            const { done, value } = await reader.read();
+            
+            if (done) break;
+            
+            if (value) {
+              buffer += decoder.decode(value, { stream: true });
+              
+              // 处理接收到的数据
+              const blocks = buffer.split("\n\n");
+              buffer = blocks.pop() ?? "";
+              
+              for (const block of blocks) {
+                const dataLines = block
+                  .split("\n")
+                  .filter(line => line.startsWith("data:"))
+                  .map(line => line.slice(5).trim());
+                
+                if (dataLines.length === 0) continue;
+                
+                for (const dataLine of dataLines) {
+                  if (dataLine === '[DONE]') {
+                    // 流结束标记
+                    continue;
+                  }
+                  
+                  try {
+                    const parsed = JSON.parse(dataLine);
+                    
+                    // 处理不同类型的数据
+                    if (parsed.type === 'answer' && parsed.content && parsed.content.answer) {
+                      // 直接包含content.answer的情况
+                      const answer = parsed.content.answer;
+                      fullContent += answer;
+                      
+                      // 限制更新频率
+                      const now = Date.now();
+                      if (now - lastUpdateTime > updateInterval) {
+                        this.cozeResult.projectIntro = fullContent;
+                        lastUpdateTime = now;
+                      }
+                    } else if (parsed.content && parsed.content.answer) {
+                      // 包含answer子字段的情况
+                      const answer = parsed.content.answer;
+                      fullContent += answer;
+                      
+                      // 限制更新频率
+                      const now = Date.now();
+                      if (now - lastUpdateTime > updateInterval) {
+                        this.cozeResult.projectIntro = fullContent;
+                        lastUpdateTime = now;
+                      }
+                    } else if (parsed.content && typeof parsed.content === 'string') {
+                      // 直接包含content字段的情况
+                      fullContent += parsed.content;
+                      
+                      // 限制更新频率
+                      const now = Date.now();
+                      if (now - lastUpdateTime > updateInterval) {
+                        this.cozeResult.projectIntro = fullContent;
+                        lastUpdateTime = now;
+                      }
+                    }
+                  } catch (e) {
+                    // 解析错误时不直接添加到内容中，避免出现[object Object]
+                  }
+                }
+              }
+            }
+          } catch (readError) {
+            // 继续处理，不要中断整个流程
+          }
+        }
+        
+        // 确保最后一次更新
+        if (fullContent) {
+          this.cozeResult.projectIntro = fullContent;
+          // 解析返回的内容，提取项目简介和图片
+          await this.parseCozeResult(fullContent);
+        } else {
+          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+        }
+      } catch (err) {
+        this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+      } finally {
+        this.isGeneratingTitle = false;
+      }
+    },
+    
+    // 解析Coze返回的结果
+    async parseCozeResult(content) {
+      // 尝试多种方式解析内容
+      
+      // 方式1：按标记分割
+      if (content.includes('项目简介') && content.includes('封面图片')) {
+        const projectIntroMatch = content.match(/项目简介[\s\S]*?封面图片/);
+        const coverImageMatch = content.match(/封面图片[\s\S]*/);
+        
+        if (projectIntroMatch) {
+          this.cozeResult.projectIntro = projectIntroMatch[0].replace('项目简介', '').replace('封面图片', '').trim();
+        }
+        
+        if (coverImageMatch) {
+          // 提取Markdown格式中的图片URL，即![封面图片](...)格式，处理URL中包含括号的情况
+          const imageUrlMatch = coverImageMatch[0].match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+          if (imageUrlMatch && imageUrlMatch[1]) {
+            const aiImageUrl = imageUrlMatch[1];
+            console.log('AI生成的封面图片链接:', aiImageUrl);
+            // 下载并上传图片
+            await this.downloadAndUploadImage(aiImageUrl);
+          }
+        }
+      } 
+      // 方式2：直接提取图片URL
+      else {
+        // 尝试直接从内容中提取Markdown格式的图片URL，即![封面图片](...)格式，处理URL中包含括号的情况
+        const imageUrlMatch = content.match(/!\[封面图片\]\((https?:\/\/.*?)\)(?=\s|$)/);
+        if (imageUrlMatch && imageUrlMatch[1]) {
+          const aiImageUrl = imageUrlMatch[1];
+          console.log('AI生成的封面图片链接:', aiImageUrl);
+          // 下载并上传图片
+          await this.downloadAndUploadImage(aiImageUrl);
+          // 剩余部分作为项目简介
+          this.cozeResult.projectIntro = content.replace(imageUrlMatch[0], '').trim();
+        } else {
+          // 全部作为项目简介
+          this.cozeResult.projectIntro = content;
+        }
+      }
+      
+      // 确保项目简介不为空
+      if (!this.cozeResult.projectIntro || this.cozeResult.projectIntro === 'AI正在生成项目信息...') {
+        this.cozeResult.projectIntro = '生成的项目信息为空，请重试';
+      }
+    },
+    
+    // 通过后端API上传图片链接
+    async downloadAndUploadImage(imageUrl) {
+      try {
+        console.log('开始处理图片链接:', imageUrl);
+        
+        // 通过后端API处理图片
+        const response = await apiClient.post('/api/upload/cover-from-url', {
+          imageUrl: imageUrl
+        });
+        
+        if (response.data.code === 200) {
+          const uploadedUrl = response.data.data.url;
+          console.log('图片上传成功，上传后的链接:', uploadedUrl);
+          this.cozeResult.coverImage = uploadedUrl;
+        } else {
+          console.error('上传图片失败:', response.data.message);
+          // 如果上传失败，使用原始链接
+          this.cozeResult.coverImage = imageUrl;
+        }
+      } catch (error) {
+        console.error('处理图片失败:', error);
+        // 如果出错，使用原始链接
+        this.cozeResult.coverImage = imageUrl;
+      }
+    },
+    
+    // 确认Coze结果并反写回表单
+    confirmCozeResult() {
+      if (this.cozeResult.projectIntro) {
+        this.projectForm.description = this.cozeResult.projectIntro;
+      }
+      if (this.cozeResult.coverImage) {
+        this.projectForm.coverImage = this.cozeResult.coverImage;
+      }
+      this.showCozeModal = false;
+      this.successMessage = '项目信息已更新！';
+      this.showSuccessModal = true;
     },
     
     // 格式化日期
@@ -1089,6 +1393,91 @@ export default {
   font-size: 16px;
   transition: all 0.2s ease;
   background-color: #fafafa;
+}
+
+/* 带按钮的输入框 */
+.input-with-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-button input {
+  flex: 1;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.ai-button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding: 0 16px;
+  background-color: #165dff;
+  color: white;
+  border: none;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ai-button:hover:not(:disabled) {
+  background-color: #0a46d4;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(22, 93, 255, 0.2);
+}
+
+.ai-button:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Loading效果 */
+.loading-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #165dff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 禁用状态 */
+.close-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-btn.disabled,
+.save-btn.disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.cancel-btn.disabled:hover,
+.save-btn.disabled:hover {
+  background-color: #c0c4cc;
+  transform: none;
+  box-shadow: none;
 }
 
 .form-group input:focus,
@@ -1766,6 +2155,80 @@ export default {
   font-weight: bold;
   margin-bottom: 24px;
   box-shadow: 0 4px 12px rgba(0, 180, 42, 0.3);
+}
+
+/* Coze结果弹窗 */
+.coze-modal {
+  max-width: 600px;
+}
+
+.coze-result {
+  margin-bottom: 24px;
+}
+
+.coze-section {
+  margin-bottom: 24px;
+}
+
+.coze-section h4 {
+  margin: 0 0 12px 0;
+  color: #212529;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.coze-content {
+  padding: 16px;
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4e5969;
+  min-height: 120px;
+}
+
+.coze-image-container {
+  padding: 16px;
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.coze-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.coze-image-placeholder {
+  color: #86909c;
+  font-size: 14px;
+}
+
+/* 确保弹窗在小屏幕上也能正常显示 */
+@media (max-width: 768px) {
+  .coze-modal {
+    max-width: 90vw;
+    margin: 20px;
+  }
+  
+  .coze-content {
+    min-height: 100px;
+  }
+  
+  .coze-image-container {
+    min-height: 150px;
+  }
+  
+  .coze-image {
+    max-height: 200px;
+  }
 }
 
 .success-message {
