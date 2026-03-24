@@ -74,11 +74,17 @@
             <div class="toolbar-left">
               <h2>作品列表</h2>
               <div class="category-filter">
-                <label for="category">分类筛选：</label>
-                <select id="category" v-model="selectedCategoryId" @change="changeCategory(selectedCategoryId)" class="category-select">
-                  <option value="">全部分类</option>
-                  <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
-                </select>
+                <label>分类筛选：</label>
+                <div class="category-checkbox-group">
+                  <label class="category-checkbox-item">
+                    <input type="checkbox" v-model="selectedCategoryIds" :value="''" @change="filterProjects">
+                    <span>全选</span>
+                  </label>
+                  <label v-for="category in categories" :key="category.id" class="category-checkbox-item">
+                    <input type="checkbox" v-model="selectedCategoryIds" :value="category.id.toString()" @change="filterProjects">
+                    <span>{{ category.name }}</span>
+                  </label>
+                </div>
               </div>
             </div>
             <button v-if="userInfo.role === 'admin'" @click="showAddModal = true" class="add-btn">新增作品</button>
@@ -86,12 +92,14 @@
           
           <div class="project-grid">
             <div v-for="project in projects" :key="project.id" class="project-card">
-              <div class="project-cover-container">
-                <img :src="project.coverImage" alt="封面" class="project-cover">
-                <div v-if="getCategoryName(project.categoryId)" class="project-category-badge">
-                  {{ getCategoryName(project.categoryId) }}
+              <a :href="project.detailLink" target="_blank" class="project-cover-link">
+                <div class="project-cover-container">
+                  <img :src="project.coverImage" alt="封面" class="project-cover">
+                  <div v-if="getCategoryName(project.categoryId)" class="project-category-badge">
+                    {{ getCategoryName(project.categoryId) }}
+                  </div>
                 </div>
-              </div>
+              </a>
               <div class="project-info">
                 <h3 class="project-title">{{ project.title }}</h3>
                 <div class="description-container" :data-description="project.description">
@@ -105,6 +113,9 @@
                 </div>
                 <div class="project-actions-row">
                   <a :href="project.detailLink" target="_blank" class="detail-link">查看详情</a>
+                </div>
+                <div class="project-meta">
+                  <span class="project-created-at">{{ formatDate(project.createdAt) }}</span>
                 </div>
                 <div v-if="project.githubLink" class="github-container">
                   <div class="github-header">
@@ -544,7 +555,8 @@ export default {
       errorMessage: '',
       projects: [],
       categories: [],
-      selectedCategoryId: null,
+      selectedCategoryIds: [],
+      allProjects: [], // 存储所有作品，用于筛选
       showAddModal: false,
       showEditModal: false,
       showDeleteModal: false,
@@ -661,17 +673,32 @@ export default {
     // 获取作品列表
     async getProjects() {
       try {
-        const params = {}
-        if (this.selectedCategoryId) {
-          params.categoryId = this.selectedCategoryId
-        }
-        const response = await apiClient.get('/api/projects', { params })
+        const response = await apiClient.get('/api/projects')
         console.log('获取到的作品列表:', response.data.data)
         if (response.data.code === 200) {
-          this.projects = response.data.data
+          this.allProjects = response.data.data
+          this.filterProjects()
         }
       } catch (error) {
         console.error('获取作品列表失败:', error)
+      }
+    },
+    
+    // 筛选作品
+    filterProjects() {
+      // 处理全选逻辑
+      if (this.selectedCategoryIds.includes('')) {
+        // 全选被选中，清空其他选择
+        this.selectedCategoryIds = ['']
+        this.projects = this.allProjects
+      } else if (this.selectedCategoryIds.length === 0) {
+        // 没有选择任何分类，显示所有作品
+        this.projects = this.allProjects
+      } else {
+        // 筛选选中的分类
+        this.projects = this.allProjects.filter(project => 
+          this.selectedCategoryIds.includes(project.categoryId.toString())
+        )
       }
     },
     
@@ -814,6 +841,19 @@ export default {
         console.error('复制失败:', err)
         this.successMessage = '复制失败，请手动复制'
         this.showSuccessModal = true
+      })
+    },
+    
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
       })
     },
     
@@ -1273,38 +1313,58 @@ export default {
 
 .category-filter {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.category-filter label {
+.category-filter > label {
   font-size: 14px;
   font-weight: 500;
   color: #4e5969;
+  margin-top: 4px;
 }
 
-.category-select {
-  padding: 8px 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
+.category-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.category-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
-  color: #212529;
-  background-color: white;
+  color: #4e5969;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 200px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  padding: 4px 12px;
+  border-radius: 16px;
+  background-color: #f8f9fa;
+  border: 1px solid #e4e7ed;
 }
 
-.category-select:hover {
+.category-checkbox-item:hover {
+  background-color: #f0f5ff;
   border-color: #165dff;
-  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
+  color: #165dff;
 }
 
-.category-select:focus {
-  outline: none;
-  border-color: #165dff;
-  box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.2);
+.category-checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.category-checkbox-item input[type="checkbox"]:checked + span {
+  font-weight: 500;
+  color: #165dff;
+}
+
+.category-checkbox-item input[type="checkbox"]:checked {
+  accent-color: #165dff;
 }
 
 .add-btn {
@@ -1362,6 +1422,17 @@ export default {
 
 .project-card:hover .project-cover {
   transform: scale(1.05);
+}
+
+/* 项目封面链接 */
+.project-cover-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.project-cover-link:hover {
+  text-decoration: none;
 }
 
 .project-category-badge {
@@ -1541,6 +1612,27 @@ export default {
 .github-url:hover {
   color: #0366d6;
   text-decoration: underline;
+}
+
+/* 项目元信息 */
+.project-meta {
+  margin: 12px 0;
+  font-size: 12px;
+  color: #86909c;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-created-at {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.project-created-at::before {
+  content: "📅";
+  font-size: 12px;
 }
 
 .copy-btn {
