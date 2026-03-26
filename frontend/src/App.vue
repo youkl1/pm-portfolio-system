@@ -565,11 +565,10 @@
 
 <script>
 import axios from 'axios'
-import config from './config'
 
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: config.apiBaseUrl,
+  baseURL: '',
   withCredentials: true
 })
 
@@ -901,212 +900,213 @@ export default {
       })
     },
     
-    // AI生成项目信息
-    async generateTitle() {
-      this.isGeneratingTitle = true
-      // 直接显示弹窗
-      this.showCozeModal = true
-      // 清空之前的结果
-      this.cozeResult = {
-        projectIntro: 'AI正在生成项目信息...',
-        coverImage: ''
-      }
-      
-      try {
-        const url = "/coze-api/stream_run";
-        const headers = {
-          "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjJlYzY4MDQ4LTUwN2MtNDgzOS1hZmQxLTM1YmJhODcyMmRkZCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbIjFiUTlaT1hRRmJ3cDJ0QXRiaTQxb1lVRmJ2SXNBOTIxIl0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzc0MzU0NzEwLCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjIwNzUwMjM3MzAwMTYyNTc5Iiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjIwNzk1NDU0MTM3MDQwOTM4In0.Qxg97tC8NoNGs7Ddk4rle1MsTvj1uLPyIRRSEw0otqgaZULPoLRKX7ZoqJyviP8WKBkHubQxVh_FT9G88TkRR4yXmm1M4HYFxAxg117QS7rxqvpYw5MWBkmfSVKMnP66qQU2OGpMrbPfaJbosfAP8e80DjtVR0Kl9V4CSB1JSogebgWMCzf4cI_3UNIjNgBGXO5WrhM5NWzOrtskPrwE2vU5kaLol0Wx1azp3s0cjW91Y1cAkUiaGeRuozFgi8pFeTXKoxVlc4fw2z-O8qej9TWeG-dJPtf_YM-EW4kDidDL1Z_z6FkjPsnv88xTLRrGJ4EEoPQTPFzK66rE514sjw",
-          "Content-Type": "application/json",
-          "Accept": "text/event-stream"
-        };
-        
-        // 将标题作为参数传入
-        const prompt = this.projectForm.title || "为产品经理个人作品生成项目信息";
-        
-        // 增加请求时长
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-        }, 120000); // 120秒超时
-        
-        const res = await fetch(url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            "content": {
-              "query": {
-                "prompt": [
-                  {
-                    "type": "text",
-                    "content": {
-                      "text": prompt
-                    }
-                  }
-                ]
-              }
-            },
-            "type": "query",
-            "session_id": "tY0VUHcfW9yADT5sajLUx",
-            "project_id": "7620746694535381034"
-          }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) {
-          const errText = await res.text();
-          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
-          return;
-        }
-        
-        if (!res.body) {
-          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
-          return;
-        }
-        
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let fullContent = "";
-        let lastUpdateTime = 0;
-        const updateInterval = 100; // 限制更新频率
-        
-        while (true) {
-          try {
-            const { done, value } = await reader.read();
-            
-            if (done) break;
-            
-            if (value) {
-              buffer += decoder.decode(value, { stream: true });
-              
-              // 处理接收到的数据
-              const blocks = buffer.split("\n\n");
-              buffer = blocks.pop() ?? "";
-              
-              for (const block of blocks) {
-                const dataLines = block
-                  .split("\n")
-                  .filter(line => line.startsWith("data:"))
-                  .map(line => line.slice(5).trim());
-                
-                if (dataLines.length === 0) continue;
-                
-                for (const dataLine of dataLines) {
-                  if (dataLine === '[DONE]') {
-                    // 流结束标记
-                    continue;
-                  }
-                  
-                  try {
-                    const parsed = JSON.parse(dataLine);
-                    
-                    // 处理不同类型的数据
-                    if (parsed.type === 'answer' && parsed.content && parsed.content.answer) {
-                      // 直接包含content.answer的情况
-                      const answer = parsed.content.answer;
-                      fullContent += answer;
-                      
-                      // 限制更新频率
-                      const now = Date.now();
-                      if (now - lastUpdateTime > updateInterval) {
-                        this.cozeResult.projectIntro = fullContent;
-                        lastUpdateTime = now;
-                      }
-                    } else if (parsed.content && parsed.content.answer) {
-                      // 包含answer子字段的情况
-                      const answer = parsed.content.answer;
-                      fullContent += answer;
-                      
-                      // 限制更新频率
-                      const now = Date.now();
-                      if (now - lastUpdateTime > updateInterval) {
-                        this.cozeResult.projectIntro = fullContent;
-                        lastUpdateTime = now;
-                      }
-                    } else if (parsed.content && typeof parsed.content === 'string') {
-                      // 直接包含content字段的情况
-                      fullContent += parsed.content;
-                      
-                      // 限制更新频率
-                      const now = Date.now();
-                      if (now - lastUpdateTime > updateInterval) {
-                        this.cozeResult.projectIntro = fullContent;
-                        lastUpdateTime = now;
-                      }
-                    }
-                  } catch (e) {
-                    // 解析错误时不直接添加到内容中，避免出现[object Object]
-                  }
+// AI生成项目信息
+async generateTitle() {
+  // 初始化状态
+  this.isGeneratingTitle = true
+  this.showCozeModal = true
+  this.cozeResult = {
+    projectIntro: 'AI正在生成项目信息...',
+    coverImage: ''
+  }
+
+  // 请求头配置
+  const headers = {
+    "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6IjJlYzY4MDQ4LTUwN2MtNDgzOS1hZmQxLTM1YmJhODcyMmRkZCJ9.eyJpc3MiOiJodHRwczovL2FwaS5jb3plLmNuIiwiYXVkIjpbIjFiUTlaT1hRRmJ3cDJ0QXRiaTQxb1lVRmJ2SXNBOTIxIl0sImV4cCI6ODIxMDI2Njg3Njc5OSwiaWF0IjoxNzc0MzU0NzEwLCJzdWIiOiJzcGlmZmU6Ly9hcGkuY296ZS5jbi93b3JrbG9hZF9pZGVudGl0eS9pZDo3NjIwNzUwMjM3MzAwMTYyNTc5Iiwic3JjIjoiaW5ib3VuZF9hdXRoX2FjY2Vzc190b2tlbl9pZDo3NjIwNzk1NDU0MTM3MDQwOTM4In0.Qxg97tC8NoNGs7Ddk4rle1MsTvj1uLPyIRRSEw0otqgaZULPoLRKX7ZoqJyviP8WKBkHubQxVh_FT9G88TkRR4yXmm1M4HYFxAxg117QS7rxqvpYw5MWBkmfSVKMnP66qQU2OGpMrbPfaJbosfAP8e80DjtVR0Kl9V4CSB1JSogebgWMCzf4cI_3UNIjNgBGXO5WrhM5NWzOrtskPrwE2vU5kaLol0Wx1azp3s0cjW91Y1cAkUiaGeRuozFgi8pFeTXKoxVlc4fw2z-O8qej9TWeG-dJPtf_YM-EW4kDidDL1Z_z6FkjPsnv88xTLRrGJ4EEoPQTPFzK66rE514sjw",
+    "Content-Type": "application/json",
+    "Accept": "text/event-stream"
+  };
+
+  // 生成prompt
+  const prompt = this.projectForm.title || "为产品经理个人作品生成项目信息";
+  let fullContent = '';
+  let isStreamFinished = false;
+
+  console.log('开始请求Coze API，prompt:', prompt);
+
+  try {
+    // 发起fetch请求，完全移除AbortController，不主动终止请求
+    const res = await fetch('/coze-api/stream_run', {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        "content": {
+          "query": {
+            "prompt": [
+              {
+                "type": "text",
+                "content": {
+                  "text": prompt
                 }
               }
+            ]
+          }
+        },
+        "type": "query",
+        "session_id": "rHmLKRn48rDOPtf0n0E1q",
+        "project_id": "7620746694535381034"
+      })
+    });
+
+    // 响应异常处理
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('接口请求失败，响应内容:', errText);
+      this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+      return;
+    }
+    if (!res.body) {
+      console.error('当前环境不支持流式响应');
+      this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+      return;
+    }
+
+    // 初始化流读取器
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    // 循环读取流式数据
+    while (true) {
+      // 如果流已经标记结束，直接退出循环
+      if (isStreamFinished) break;
+
+      // 读取流数据
+      const { done, value } = await reader.read();
+
+      // 流正常结束，处理最后残留的buffer
+      if (done) {
+        if (buffer.trim()) {
+          try {
+            const dataText = buffer.trim().replace(/^data:/, "").trim();
+            const parsed = JSON.parse(dataText);
+            if (parsed.content?.answer) {
+              fullContent += parsed.content.answer;
+              this.cozeResult.projectIntro = fullContent;
             }
-          } catch (readError) {
-            // 继续处理，不要中断整个流程
+          } catch (e) {
+            console.debug("最后一块数据解析失败", e);
           }
         }
-        
-        // 确保最后一次更新
-        if (fullContent) {
-          this.cozeResult.projectIntro = fullContent;
-          // 解析返回的内容，提取项目简介和图片
-          await this.parseCozeResult(fullContent);
-        } else {
-          this.cozeResult.projectIntro = '生成项目信息失败，请重试';
-        }
-      } catch (err) {
-        this.cozeResult.projectIntro = '生成项目信息失败，请重试';
-      } finally {
-        this.isGeneratingTitle = false;
+        break;
       }
-    },
+
+      // 解码流式数据，追加到buffer
+      buffer += decoder.decode(value, { stream: true });
+      // 按SSE标准分割数据包
+      const blocks = buffer.split("\n\n");
+      // 保留不完整的最后一块，下次循环继续处理
+      buffer = blocks.pop() || "";
+
+      // 遍历处理完整的数据包
+      for (const block of blocks) {
+        if (isStreamFinished) break;
+
+        // 过滤出SSE的data行
+        const dataLines = block
+          .split("\n")
+          .filter(line => line.trim().startsWith("data:"))
+          .map(line => line.slice(5).trim());
+
+        // 无有效数据，跳过
+        if (dataLines.length === 0) continue;
+        const dataText = dataLines.join("\n");
+
+        // 处理Coze的结束标记
+        if (dataText === "[DONE]") {
+          isStreamFinished = true;
+          break;
+        }
+
+        // 解析JSON数据
+        try {
+          const parsed = JSON.parse(dataText);
+          console.log("收到流式数据:", parsed);
+
+          // 提取回答内容，实时更新到页面
+          if (parsed.content?.answer) {
+            const answer = parsed.content.answer;
+            fullContent += answer;
+            this.cozeResult.projectIntro = fullContent;
+            console.log('实时提取到answer:', answer);
+          }
+
+          // 识别Coze的结束事件，标记流完成，不主动cancel
+          if (parsed.type === "message_end" || parsed.event === "message.finish") {
+            isStreamFinished = true;
+            break;
+          }
+        } catch (e) {
+          // 不完整的JSON块是正常的，仅调试打印，不报错
+          console.debug("跳过不完整的JSON块", dataText);
+        }
+      }
+    }
+
+    // 流处理完成，释放资源
+    reader.releaseLock();
+    console.log('流处理完成，最终完整内容:', fullContent);
+
+    // 最终内容处理
+    if (fullContent.trim()) {
+      this.cozeResult.projectIntro = fullContent;
+      // 解析封面图片
+      await this.parseCozeResult(fullContent);
+    } else {
+      this.cozeResult.projectIntro = '生成项目信息失败，未获取到有效内容';
+    }
+
+  } catch (err) {
+    // 只有真正的异常才报错，正常结束不会走到这里
+    console.error('请求Coze API时发生错误:', err);
+    this.cozeResult.projectIntro = '生成项目信息失败，请重试';
+  } finally {
+    // 最终重置加载状态
+    this.isGeneratingTitle = false;
+  }
+},
     
     // 解析Coze返回的结果
     async parseCozeResult(content) {
-      // 尝试多种方式解析内容
-      
-      // 方式1：按标记分割
-      if (content.includes('项目简介') && content.includes('封面图片')) {
-        const projectIntroMatch = content.match(/项目简介[\s\S]*?封面图片/);
-        const coverImageMatch = content.match(/封面图片[\s\S]*/);
-        
-        if (projectIntroMatch) {
-          this.cozeResult.projectIntro = projectIntroMatch[0].replace('项目简介', '').replace('封面图片', '').trim();
-        }
-        
-        if (coverImageMatch) {
-          // 提取Markdown格式中的图片URL，即![封面图片](...)格式，处理URL中包含括号的情况
-          const imageUrlMatch = coverImageMatch[0].match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
-          if (imageUrlMatch && imageUrlMatch[1]) {
-            const aiImageUrl = imageUrlMatch[1];
-            console.log('AI生成的封面图片链接:', aiImageUrl);
-            // 下载并上传图片
-            await this.downloadAndUploadImage(aiImageUrl);
-          }
-        }
-      } 
-      // 方式2：直接提取图片URL
-      else {
-        // 尝试直接从内容中提取Markdown格式的图片URL，即![封面图片](...)格式，处理URL中包含括号的情况
-        const imageUrlMatch = content.match(/!\[封面图片\]\((https?:\/\/.*?)\)(?=\s|$)/);
-        if (imageUrlMatch && imageUrlMatch[1]) {
-          const aiImageUrl = imageUrlMatch[1];
-          console.log('AI生成的封面图片链接:', aiImageUrl);
-          // 下载并上传图片
-          await this.downloadAndUploadImage(aiImageUrl);
-          // 剩余部分作为项目简介
-          this.cozeResult.projectIntro = content.replace(imageUrlMatch[0], '').trim();
-        } else {
-          // 全部作为项目简介
-          this.cozeResult.projectIntro = content;
-        }
-      }
+      console.log('开始解析Coze结果，内容:', content);
       
       // 确保项目简介不为空
-      if (!this.cozeResult.projectIntro || this.cozeResult.projectIntro === 'AI正在生成项目信息...') {
+      if (!content || content.trim() === '') {
         this.cozeResult.projectIntro = '生成的项目信息为空，请重试';
+        return;
       }
+      
+      // 提取项目简介部分
+      let projectIntro = content;
+      let coverImageUrl = '';
+      
+      // 处理项目简介部分
+      if (content.includes('# 项目简介')) {
+        const introStart = content.indexOf('# 项目简介') + '# 项目简介'.length;
+        let introEnd = content.indexOf('# 封面图片', introStart);
+        if (introEnd === -1) {
+          introEnd = content.length;
+        }
+        projectIntro = content.substring(introStart, introEnd).trim();
+      }
+      
+      // 提取封面图片链接
+      if (content.includes('# 封面图片')) {
+        const imageStart = content.indexOf('# 封面图片') + '# 封面图片'.length;
+        const imageMatch = content.substring(imageStart).match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/);
+        if (imageMatch && imageMatch[1]) {
+          coverImageUrl = imageMatch[1];
+          console.log('提取到封面图片链接:', coverImageUrl);
+          // 下载并上传图片
+          await this.downloadAndUploadImage(coverImageUrl);
+        }
+      }
+      
+      // 设置项目简介
+      this.cozeResult.projectIntro = projectIntro;
+      
+      console.log('解析完成，项目简介:', this.cozeResult.projectIntro);
+      console.log('解析完成，封面图片链接:', coverImageUrl);
     },
     
     // 通过后端API上传图片链接
