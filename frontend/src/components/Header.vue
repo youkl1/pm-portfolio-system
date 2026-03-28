@@ -4,8 +4,13 @@
     <div class="header-actions">
       <span>欢迎，{{ userInfo.username }} ({{ userInfo.role }})</span>
       <nav class="nav-menu">
+        <button @click="switchTab('dashboard')" :class="{ active: activeTab === 'dashboard' }" class="nav-btn">仪表盘</button>
         <button @click="switchTab('projects')" :class="{ active: activeTab === 'projects' }" class="nav-btn">作品管理</button>
         <button @click="switchTab('resumes')" :class="{ active: activeTab === 'resumes' }" class="nav-btn">个人简历</button>
+        <button v-if="userInfo.role === 'admin'" @click="switchTab('permission')" :class="{ active: activeTab === 'permission' }" class="nav-btn">权限管理</button>
+        <button v-if="userInfo.role === 'admin'" @click="switchTab('tenant')" :class="{ active: activeTab === 'tenant' }" class="nav-btn">租户管理</button>
+        <button v-if="userInfo.role === 'admin'" @click="switchTab('user')" :class="{ active: activeTab === 'user' }" class="nav-btn">用户管理</button>
+        <button v-if="userInfo.role === 'admin' || userInfo.role === 'test'" @click="switchTab('template')" :class="{ active: activeTab === 'template' }" class="nav-btn">模板库</button>
       </nav>
       <button @click="logout" class="logout-btn">退出登录</button>
     </div>

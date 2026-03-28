@@ -65,7 +65,11 @@ public class AuthController {
                 return response;
             }
             
-            SysUser user = authService.login(username, password);
+            // 获取IP和设备信息
+            String ip = httpRequest.getRemoteAddr();
+            String device = httpRequest.getHeader("User-Agent");
+            
+            SysUser user = authService.login(username, password, ip, device);
             
             Map<String, Object> userInfo = new HashMap<>();
             userInfo.put("id", user.getId());

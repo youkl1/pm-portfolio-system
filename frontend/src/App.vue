@@ -20,8 +20,11 @@
       />
       
       <main class="main-content">
+        <!-- 仪表盘标签页 -->
+        <Dashboard v-if="activeTab === 'dashboard'" />
+        
         <!-- 作品管理标签页 -->
-        <Projects v-if="activeTab === 'projects' " 
+        <Projects v-else-if="activeTab === 'projects' " 
           :userInfo="userInfo"
           :projects="projects"
           :categories="categories"
@@ -44,6 +47,18 @@
           @edit-resume="editResume"
           @show-delete-resume-confirm="showDeleteResumeConfirm"
         />
+        
+        <!-- 权限管理标签页 -->
+        <PermissionManager v-else-if="activeTab === 'permission'"></PermissionManager>
+        
+        <!-- 租户管理标签页 -->
+        <TenantManager v-else-if="activeTab === 'tenant'"></TenantManager>
+        
+        <!-- 用户管理标签页 -->
+        <UserManager v-else-if="activeTab === 'user'"></UserManager>
+        
+        <!-- 模板库标签页 -->
+        <TemplateManager v-else-if="activeTab === 'template'" :userInfo="userInfo"></TemplateManager>
       </main>
       
       <!-- 新增/编辑作品弹窗 -->
@@ -121,8 +136,13 @@
 <script>
 import Login from './components/Login.vue'
 import Header from './components/Header.vue'
+import Dashboard from './components/Dashboard.vue'
 import Projects from './components/Projects.vue'
 import Resumes from './components/Resumes.vue'
+import PermissionManager from './components/PermissionManager.vue'
+import TenantManager from './components/TenantManager.vue'
+import UserManager from './components/UserManager.vue'
+import TemplateManager from './components/TemplateManager.vue'
 import ProjectModal from './components/ProjectModal.vue'
 import ResumeModal from './components/ResumeModal.vue'
 import CozeModal from './components/CozeModal.vue'
@@ -135,8 +155,13 @@ export default {
   components: {
     Login,
     Header,
+    Dashboard,
     Projects,
     Resumes,
+    PermissionManager,
+    TenantManager,
+    UserManager,
+    TemplateManager,
     ProjectModal,
     ResumeModal,
     CozeModal,
@@ -179,7 +204,7 @@ export default {
         sort: 0
       },
       // 个人简历相关
-      activeTab: 'projects',
+      activeTab: 'dashboard',
       resumes: [],
       showAddResumeModal: false,
       showEditResumeModal: false,

@@ -31,6 +31,26 @@ public class SysUser {
     @Schema(description = "过期时间", required = true)
     private Date expireTime;
     
+    @Column(name = "tenant_id", nullable = false)
+    @Schema(description = "租户ID")
+    private Long tenantId;
+
+    @Column(name = "is_admin", nullable = false, columnDefinition = "boolean default false")
+    @Schema(description = "是否为租户管理员")
+    private Boolean isAdmin;
+
+    @Column(name = "status", nullable = false, columnDefinition = "varchar(20) default 'active'")
+    @Schema(description = "用户状态")
+    private String status;
+
+    @Column(name = "last_login_time")
+    @Schema(description = "最后登录时间")
+    private Date lastLoginTime;
+
+    @Column(name = "last_login_ip")
+    @Schema(description = "最后登录IP")
+    private String lastLoginIp;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     @Schema(description = "创建时间")
     private Date createdAt;
