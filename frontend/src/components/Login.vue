@@ -17,7 +17,10 @@
           <img :src="captchaImage" @click="getCaptcha" alt="验证码" class="captcha-image">
         </div>
       </div>
-      <button type="submit" class="login-btn">登录</button>
+      <button type="submit" class="login-btn" :disabled="loginLoading">
+        <span v-if="!loginLoading">登录</span>
+        <span v-else class="loading-spinner">登录中...</span>
+      </button>
       <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     </form>
   </div>
@@ -38,6 +41,10 @@ export default {
     errorMessage: {
       type: String,
       default: ''
+    },
+    loginLoading: {
+      type: Boolean,
+      default: false
     }
   },
   methods: {
@@ -137,6 +144,39 @@ export default {
 
 .login-btn:hover {
   background: #40a9ff;
+}
+
+.login-btn:disabled {
+  background: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.loading-spinner {
+  display: inline-block;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+.loading-spinner::after {
+  content: '';
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-color: transparent currentColor transparent currentColor;
+  animation: spin 1s linear infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 .error-message {

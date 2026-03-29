@@ -29,16 +29,33 @@ public class TemplateServiceImpl implements TemplateService {
     @Autowired
     private TemplateVersionRepository templateVersionRepository;
 
-    private final String STORAGE_PATH = "d:/temp/templates/";
+    // 获取存储路径 - 根据操作系统自动选择正确的路径
+    private String getStoragePath() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String storagePath;
+        if (os.contains("win")) {
+            // Windows环境
+            storagePath = System.getProperty("user.dir") + File.separator + "uploads" + File.separator + "templates";
+        } else {
+            // Linux环境
+            storagePath = "/opt/pm-portfolio/templates";
+        }
+        System.out.println("操作系统: " + os);
+        System.out.println("存储路径: " + storagePath);
+        return storagePath;
+    }
 
     @Override
     @org.springframework.transaction.annotation.Transactional
     public Template importTemplate(MultipartFile file, String name, String description, List<Long> categoryIds, Long userId) {
         System.out.println("TemplateServiceImpl.importTemplate 开始");
         try {
+            // 获取存储路径
+            String storagePath = getStoragePath();
+            
             // 创建存储目录
-            System.out.println("检查存储目录: " + STORAGE_PATH);
-            File storageDir = new File(STORAGE_PATH);
+            System.out.println("检查存储目录: " + storagePath);
+            File storageDir = new File(storagePath);
             if (!storageDir.exists()) {
                 System.out.println("创建存储目录");
                 storageDir.mkdirs();
@@ -47,10 +64,16 @@ public class TemplateServiceImpl implements TemplateService {
             // 生成唯一文件名
             String originalFilename = file.getOriginalFilename();
             System.out.println("原始文件名: " + originalFilename);
-            String format = originalFilename.substring(originalFilename.lastIndexOf('.') + 1);
+            
+            // 提取文件格式
+            String format = "unknown";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                format = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+            }
             System.out.println("文件格式: " + format);
+            
             String fileName = UUID.randomUUID().toString() + "." + format;
-            String filePath = STORAGE_PATH + fileName;
+            String filePath = storagePath + File.separator + fileName;
             System.out.println("保存路径: " + filePath);
 
             // 保存文件
@@ -238,61 +261,21 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public Map<String, Object> viewTemplate(Long id) {
-        Template template = templateRepository.findById(id).orElseThrow(() -> new RuntimeException("模板不存在"));
+         Template template = templateRepository.findById(id).orElseThrow(() -> new RuntimeException("模板不存在"));
 
         Map<String, Object> result = new HashMap<>();
         result.put("id", template.getId());
         result.put("name", template.getName());
-        result.put("format", template.getFormat());
-        
-        // 尝试读取模板文件内容
-        String content = "<html><body>模板内容预览</body></html>";
-        try {
-            if (template.getFilePath() != null) {
-                File file = new File(template.getFilePath());
-                if (file.exists()) {
-                    String format = template.getFormat().toLowerCase();
-                    if ("docx".equals(format)) {
-                        // 处理DOCX文件，添加fallback机制
-                        try {
-                            System.out.println("开始解析DOCX文件: " + file.getAbsolutePath());
-                            content = parseDocxFile(file);
-                            System.out.println("DOCX文件解析完成，内容长度: " + content.length());
-                        } catch (ClassNotFoundException e) {
-                            // Apache POI依赖不可用，使用默认预览
-                            System.err.println("Apache POI依赖不可用，使用默认预览: " + e.getMessage());
-                            content = "<html><body><p>DOCX文件预览需要Apache POI依赖</p></body></html>";
-                        } catch (Exception e) {
-                            System.err.println("解析DOCX文件失败: " + e.getMessage());
-                            e.printStackTrace();
-                            content = "<html><body><p>解析DOCX文件失败: " + e.getMessage() + "</p></body></html>";
-                        }
-                    } else {
-                        // 处理其他文本文件
-                        StringBuilder sb = new StringBuilder();
-                        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"))) {
-                            String line;
-                            while ((line = br.readLine()) != null) {
-                                sb.append(line).append("\n");
-                            }
-                        }
-                        content = "<html><body><pre>" + sb.toString() + "</pre></body></html>";
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("读取模板文件失败: " + e.getMessage());
-            e.printStackTrace();
-        }
-        
-        result.put("content", content);
+        result.put("format", template.getFormat().toLowerCase());
+        // ✅ 删除所有文件读取逻辑！不再返回content
         return result;
     }
     
     /**
      * 解析DOCX文件，提取文本内容和图片
      */
-    private String parseDocxFile(File file) throws Exception {
+    @Override
+    public String parseDocxFile(File file) throws Exception {
         // 尝试加载Apache POI类
         try {
             Class.forName("org.apache.poi.xwpf.usermodel.XWPFDocument");
@@ -301,7 +284,7 @@ public class TemplateServiceImpl implements TemplateService {
         }
         
         StringBuilder content = new StringBuilder();
-        content.append("<html><body>");
+        content.append("<html><head><meta charset='UTF-8'></head><body>");
         int imageCount = 0;
         
         try (org.apache.poi.xwpf.usermodel.XWPFDocument document = new org.apache.poi.xwpf.usermodel.XWPFDocument(new FileInputStream(file))) {
@@ -438,6 +421,105 @@ public class TemplateServiceImpl implements TemplateService {
         System.out.println("总共处理了 " + imageCount + " 张图片");
         return content.toString();
     }
+    
+    @Override
+    public String parseExcelFile(File file) throws Exception {
+        // 尝试加载Apache POI类
+        try {
+            Class.forName("org.apache.poi.ss.usermodel.Workbook");
+        } catch (ClassNotFoundException e) {
+            throw e;
+        }
+        
+        StringBuilder content = new StringBuilder();
+        content.append("<html><head><meta charset='UTF-8'><style>");
+        content.append("table { border-collapse: collapse; width: 100%; margin: 10px 0; }");
+        content.append("th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }");
+        content.append("th { background-color: #f2f2f2; font-weight: bold; }");
+        content.append("tr:nth-child(even) { background-color: #f9f9f9; }");
+        content.append("tr:hover { background-color: #f5f5f5; }");
+        content.append(".sheet-title { font-size: 18px; font-weight: bold; margin: 20px 0 10px 0; }");
+        content.append("</style></head><body>");
+        
+        try (org.apache.poi.ss.usermodel.Workbook workbook = org.apache.poi.ss.usermodel.WorkbookFactory.create(new FileInputStream(file))) {
+            int sheetCount = workbook.getNumberOfSheets();
+            System.out.println("Excel文件包含 " + sheetCount + " 个工作表");
+            
+            for (int i = 0; i < sheetCount; i++) {
+                org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(i);
+                String sheetName = sheet.getSheetName();
+                System.out.println("处理工作表: " + sheetName);
+                
+                content.append("<h2 class='sheet-title'>工作表: " + sheetName + "</h2>");
+                content.append("<table>");
+                
+                // 处理表头
+                org.apache.poi.ss.usermodel.Row headerRow = sheet.getRow(0);
+                if (headerRow != null) {
+                    content.append("<tr>");
+                    int cellCount = headerRow.getLastCellNum();
+                    for (int j = 0; j < cellCount; j++) {
+                        org.apache.poi.ss.usermodel.Cell cell = headerRow.getCell(j);
+                        String cellValue = getCellValue(cell);
+                        content.append("<th>" + cellValue + "</th>");
+                    }
+                    content.append("</tr>");
+                }
+                
+                // 处理数据行
+                int rowCount = sheet.getLastRowNum();
+                for (int j = 1; j <= rowCount; j++) {
+                    org.apache.poi.ss.usermodel.Row row = sheet.getRow(j);
+                    if (row != null) {
+                        content.append("<tr>");
+                        int cellCount = row.getLastCellNum();
+                        for (int k = 0; k < cellCount; k++) {
+                            org.apache.poi.ss.usermodel.Cell cell = row.getCell(k);
+                            String cellValue = getCellValue(cell);
+                            content.append("<td>" + cellValue + "</td>");
+                        }
+                        content.append("</tr>");
+                    }
+                }
+                
+                content.append("</table><br/>");
+            }
+        }
+        
+        content.append("</body></html>");
+        System.out.println("Excel文件解析完成");
+        return content.toString();
+    }
+    
+    /**
+     * 获取Excel单元格的值
+     */
+    private String getCellValue(org.apache.poi.ss.usermodel.Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                } else {
+                    return String.valueOf(cell.getNumericCellValue());
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return cell.getStringCellValue();
+                } catch (Exception e) {
+                    return cell.getCellFormula();
+                }
+            default:
+                return "";
+        }
+    }
 
     @Override
     @org.springframework.transaction.annotation.Transactional
@@ -522,5 +604,89 @@ public class TemplateServiceImpl implements TemplateService {
             sb.append(String.format("%02x", b));
         }
         return sb.toString();
+    }
+    
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public Template updateAttachment(MultipartFile file, Long templateId, Long userId) {
+        System.out.println("TemplateServiceImpl.updateAttachment 开始");
+        try {
+            // 查找现有模板
+            Template template = templateRepository.findById(templateId).orElseThrow(() -> new RuntimeException("模板不存在"));
+            System.out.println("找到模板: " + template.getName());
+            
+            // 获取存储路径
+            String storagePath = getStoragePath();
+            
+            // 创建存储目录
+            System.out.println("检查存储目录: " + storagePath);
+            File storageDir = new File(storagePath);
+            if (!storageDir.exists()) {
+                System.out.println("创建存储目录");
+                storageDir.mkdirs();
+            }
+
+            // 生成唯一文件名
+            String originalFilename = file.getOriginalFilename();
+            System.out.println("原始文件名: " + originalFilename);
+            
+            // 提取文件格式
+            String format = "unknown";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                format = originalFilename.substring(originalFilename.lastIndexOf('.') + 1).toLowerCase();
+            }
+            System.out.println("文件格式: " + format);
+            
+            String fileName = UUID.randomUUID().toString() + "." + format;
+            String filePath = storagePath + File.separator + fileName;
+            System.out.println("保存路径: " + filePath);
+
+            // 保存文件
+            System.out.println("开始保存文件");
+            file.transferTo(new File(filePath));
+            System.out.println("文件保存成功");
+
+            // 计算文件哈希值
+            System.out.println("计算文件哈希值");
+            String contentHash = calculateFileHash(new File(filePath));
+            System.out.println("哈希值: " + contentHash);
+
+            // 删除旧文件
+            if (template.getFilePath() != null) {
+                File oldFile = new File(template.getFilePath());
+                if (oldFile.exists()) {
+                    boolean deleted = oldFile.delete();
+                    System.out.println("旧文件删除结果: " + deleted);
+                } else {
+                    System.out.println("旧文件不存在，跳过删除: " + template.getFilePath());
+                }
+            }
+
+            // 更新模板信息
+            System.out.println("更新模板信息");
+            template.setFilePath(filePath);
+            template.setFormat(format);
+            template.setSize(file.getSize());
+            template.setContentHash(contentHash);
+            // 这里需要根据userId获取SysUser对象，暂时设置为null
+            template.setUpdatedBy(null);
+
+            // 创建版本记录
+            System.out.println("创建版本记录");
+            createTemplateVersion(template, "更新附件", userId);
+            System.out.println("版本记录创建成功");
+
+            // 保存模板
+            System.out.println("保存模板到数据库");
+            template = templateRepository.save(template);
+            System.out.println("模板保存成功，ID: " + template.getId());
+
+            System.out.println("TemplateServiceImpl.updateAttachment 完成");
+            return template;
+        } catch (Exception e) {
+            System.err.println("TemplateServiceImpl.updateAttachment 失败: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("更新附件失败: " + e.getMessage());
+        }
     }
 }

@@ -5,6 +5,7 @@ import com.pmportfolio.hub.model.TemplateCategory;
 import com.pmportfolio.hub.model.TemplateVersion;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -18,6 +19,8 @@ public interface TemplateService {
     void deleteTemplate(Long id);
     byte[] downloadTemplate(Long id);
     Map<String, Object> viewTemplate(Long id);
+    String parseDocxFile(File file) throws Exception;
+    String parseExcelFile(File file) throws Exception;
     
     // 分类管理
     TemplateCategory createCategory(String name, String description, Long userId);
@@ -27,4 +30,5 @@ public interface TemplateService {
     
     // 版本管理
     List<TemplateVersion> getTemplateVersions(Long templateId);
+    Template updateAttachment(MultipartFile file, Long templateId, Long userId);
 }

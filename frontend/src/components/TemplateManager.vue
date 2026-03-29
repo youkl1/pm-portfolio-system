@@ -32,24 +32,23 @@
             class="search-input"
             @keyup.enter="loadTemplates"
           />
-          <el-select
-            v-model="selectedCategoryId"
-            placeholder="选择分类"
-            class="category-select"
-            @change="loadTemplates"
-          >
-            <el-option label="全部分类" value="" />
-            <el-option
-              v-for="category in categories"
-              :key="category.id"
-              :label="category.name"
-              :value="category.id"
-            />
-          </el-select>
           <el-button type="primary" @click="loadTemplates" class="search-button">
             <el-icon><Search /></el-icon>
             搜索
           </el-button>
+        </div>
+
+        <!-- 分类TAB -->
+        <div class="category-tabs">
+          <el-tabs v-model="selectedCategoryId" @tab-click="handleTabClick">
+            <el-tab-pane :label="`全部分类 (${totalTemplateCount})`" value="" />
+            <el-tab-pane
+              v-for="category in categories"
+              :key="category.id"
+              :label="`${category.name} (${category.templateCount || 0})`"
+              :value="category.id.toString()"
+            />
+          </el-tabs>
         </div>
 
         <!-- 模板列表 -->
@@ -157,29 +156,7 @@
         </div>
       </el-card>
 
-      <!-- 分类管理按钮 -->
-      <el-card class="category-card" shadow="hover" v-if="hasCategoryManagePermission">
-        <div class="category-header">
-          <h3 class="category-title">分类管理</h3>
-          <el-button type="primary" size="small" @click="handleManageCategories">
-            <el-icon><Setting /></el-icon>
-            管理分类
-          </el-button>
-        </div>
-        <div class="category-list">
-          <el-tag
-            v-for="category in categories"
-            :key="category.id"
-            size="default"
-            class="category-tag"
-            @click="handleSelectCategory(category.id)"
-            :effect="selectedCategoryId === category.id ? 'dark' : 'plain'"
-          >
-            {{ category.name }}
-            <span class="category-count">({{ category.templateCount || 0 }})</span>
-          </el-tag>
-        </div>
-      </el-card>
+
     </div>
 
     <!-- 导入模板弹窗 -->
@@ -217,7 +194,7 @@
             </el-button>
             <template #tip>
               <div class="el-upload__tip">
-                支持上传 Word(.docx)、PDF(.pdf)、Markdown(.md)、TXT(.txt) 格式的文件，单个文件大小不超过50MB
+                支持上传 Word(.docx)、PDF(.pdf)、Excel(.xlsx, .xls)、Markdown(.md)、TXT(.txt) 格式的文件，单个文件大小不超过50MB
               </div>
             </template>
           </el-upload>
@@ -277,7 +254,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { Plus, Search, Timer, Document, View, Edit, Download, Delete, Upload, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import apiClient from '../utils/api'
@@ -311,6 +288,7 @@ const selectedCategoryId = ref('')
 const templates = ref([])
 const categories = ref([])
 const fileList = ref([])
+const totalTemplateCount = ref(0)
 
 // 导入表单
 const importForm = reactive({
@@ -342,15 +320,34 @@ const hasCategoryManagePermission = computed(() => {
 
 // 加载模板列表
 const loadTemplates = async () => {
+  console.log('loadTemplates函数被调用')
   try {
+    console.log('开始加载模板列表:', {
+      selectedCategoryId: selectedCategoryId.value,
+      searchKeyword: searchKeyword.value,
+      currentPage: currentPage.value,
+      pageSize: pageSize.value
+    })
+    // 将selectedCategoryId转换为数字类型，确保不会传递NaN
+    let categoryId = undefined
+    if (selectedCategoryId.value !== '' && selectedCategoryId.value !== null && selectedCategoryId.value !== undefined) {
+      const parsedId = Number(selectedCategoryId.value)
+      console.log('转换后的categoryId:', parsedId)
+      if (!isNaN(parsedId)) {
+        categoryId = parsedId
+      }
+    }
+    console.log('最终传递的categoryId:', categoryId)
+    console.log('准备发送API请求')
     const response = await apiClient.get('/api/template/list', {
       params: {
-        categoryId: selectedCategoryId.value || undefined,
+        categoryId: categoryId,
         keyword: searchKeyword.value || undefined,
         page: currentPage.value,
         size: pageSize.value
       }
     })
+    console.log('API请求成功，获取到响应')
     console.log('模板列表响应:', response.data)
     console.log('模板列表数据:', response.data.data.items)
     // 打印每个模板的分类信息
@@ -359,8 +356,53 @@ const loadTemplates = async () => {
     })
     templates.value = response.data.data.items
     total.value = response.data.data.total
+    console.log('加载模板列表完成，共加载', templates.value.length, '个模板')
   } catch (error) {
     console.error('加载模板列表失败:', error)
+    console.error('错误详情:', error.response?.data || error.message)
+  }
+}
+
+// 更新分类的模板数量
+const updateCategoryTemplateCounts = async () => {
+  try {
+    // 获取所有模板，不进行分页，以计算准确的分类数量
+    const response = await apiClient.get('/api/template/list', {
+      params: {
+        page: 1,
+        size: 1000 // 假设最多1000个模板
+      }
+    })
+    
+    const allTemplates = response.data.data.items
+    const categoryCounts = {}
+    
+    // 初始化所有分类的计数为0
+    categories.value.forEach(category => {
+      categoryCounts[category.id] = 0
+    })
+    
+    // 统计每个分类的模板数量
+    allTemplates.forEach(template => {
+      if (template.categories && template.categories.length > 0) {
+        template.categories.forEach(category => {
+          if (categoryCounts.hasOwnProperty(category.id)) {
+            categoryCounts[category.id]++
+          }
+        })
+      }
+    })
+    
+    // 更新分类的templateCount
+    categories.value = categories.value.map(category => ({
+      ...category,
+      templateCount: categoryCounts[category.id] || 0
+    }))
+    
+    // 计算全部分类的模板数量
+    totalTemplateCount.value = allTemplates.length
+  } catch (error) {
+    console.error('更新分类模板数量失败:', error)
   }
 }
 
@@ -368,7 +410,10 @@ const loadTemplates = async () => {
 const loadCategories = async () => {
   try {
     const response = await apiClient.get('/api/template/category/list')
-    categories.value = response.data.data
+    categories.value = response.data.data.map(category => ({
+      ...category,
+      templateCount: category.templateCount || 0
+    }))
     // 如果没有分类，创建一个默认分类
     if (categories.value.length === 0) {
       try {
@@ -378,7 +423,10 @@ const loadCategories = async () => {
         })
         // 重新加载分类列表
         const newResponse = await apiClient.get('/api/template/category/list')
-        categories.value = newResponse.data.data
+        categories.value = newResponse.data.data.map(category => ({
+          ...category,
+          templateCount: category.templateCount || 0
+        }))
       } catch (createError) {
         console.error('创建默认分类失败:', createError)
         // 创建失败时，使用本地默认分类
@@ -390,6 +438,8 @@ const loadCategories = async () => {
         }]
       }
     }
+    // 重新计算分类的模板数量，包括全部分类
+    await updateCategoryTemplateCounts()
   } catch (error) {
     console.error('加载分类列表失败:', error)
     // 加载失败时，使用默认分类
@@ -452,6 +502,7 @@ const handleSubmitImport = async () => {
 
     importDialogVisible.value = false
     ElMessage.success('导入成功')
+    await updateCategoryTemplateCounts()
     loadTemplates()
   } catch (error) {
     console.error('导入模板失败:', error)
@@ -523,6 +574,7 @@ const handleConfirmDelete = async () => {
     await apiClient.delete(`/api/template/delete/${id}`)
     deleteDialogVisible.value = false
     ElMessage.success('删除成功')
+    await updateCategoryTemplateCounts()
     loadTemplates()
   } catch (error) {
     console.error('删除模板失败:', error)
@@ -542,6 +594,16 @@ const handleManageCategories = () => {
 const handleSelectCategory = (categoryId) => {
   selectedCategoryId.value = categoryId
   loadTemplates()
+}
+
+// 处理TAB点击
+const handleTabClick = (tab) => {
+  console.log('点击TAB:', tab)
+  console.log('tab.props.value:', tab.props.value)
+  // tab.props.value 是当前选中的分类ID
+  selectedCategoryId.value = tab.props.value
+  console.log('更新后的selectedCategoryId:', selectedCategoryId.value)
+  // watch监听器会自动调用loadTemplates()，这里不需要手动调用
 }
 
 // 分页处理
@@ -577,9 +639,18 @@ const getFormatTagType = (format) => {
   return typeMap[format.toLowerCase()] || 'info'
 }
 
+
+
 // 组件挂载时加载数据
-onMounted(() => {
-  loadCategories()
+onMounted(async () => {
+  await loadCategories()
+  await updateCategoryTemplateCounts()
+  await loadTemplates()
+})
+
+// 监听selectedCategoryId的变化，自动触发加载
+watch(selectedCategoryId, (newValue, oldValue) => {
+  console.log('selectedCategoryId变化:', oldValue, '->', newValue)
   loadTemplates()
 })
 </script>
@@ -746,12 +817,45 @@ onMounted(() => {
   box-shadow: 0 0 0 2px rgba(22, 93, 255, 0.1);
 }
 
-.category-select {
-  width: 200px;
-}
-
 .search-button {
   white-space: nowrap;
+}
+
+/* 分类TAB */
+.category-tabs {
+  margin-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.category-tabs .el-tabs__header {
+  margin: 0 0 var(--spacing-sm) 0;
+}
+
+.category-tabs .el-tabs__nav {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.category-tabs .el-tabs__item {
+  padding: 12px 24px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.category-tabs .el-tabs__item:hover {
+  color: var(--primary-color);
+}
+
+.category-tabs .el-tabs__item.is-active {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-semibold);
+}
+
+.category-tabs .el-tabs__active-bar {
+  background-color: var(--primary-color);
+  height: 3px;
+  border-radius: 3px;
 }
 
 /* 模板列表 */
@@ -838,44 +942,7 @@ onMounted(() => {
   border-top: 1px solid var(--border-light);
 }
 
-/* 分类管理 */
-.category-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
-}
 
-.category-title {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-}
-
-.category-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
-}
-
-.category-tag {
-  cursor: pointer;
-  padding: 8px 16px;
-  border-radius: var(--border-radius-md);
-  transition: all 0.2s ease;
-}
-
-.category-tag:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
-}
-
-.category-count {
-  font-size: var(--font-size-xs);
-  opacity: 0.7;
-  margin-left: 4px;
-}
 
 /* 分页 */
 .pagination {

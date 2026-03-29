@@ -1,8 +1,11 @@
 import axios from 'axios'
 
+// 使用与前端页面同域名的API基础URL
+const baseURL = window.location.origin;
+
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: baseURL,
   withCredentials: true
 })
 

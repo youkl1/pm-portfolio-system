@@ -43,19 +43,29 @@
    - 简历文件删除（仅admin权限）
    - 上传文件后展示原始文件名
 
-4. **GitHub链接**：
+4. **模板库管理**：
+   - 模板列表展示
+   - 模板新增
+   - 模板编辑
+   - 模板删除
+   - 模板导入（支持多种格式）
+   - 模板预览
+   - 模板分类管理
+   - 模板搜索和筛选
+
+5. **GitHub链接**：
    - 支持添加和展示GitHub地址
    - 带有复制功能
 
-5. **AI集成**：
+6. **AI集成**：
    - 支持使用AI生成项目信息
    - 支持生成项目简介和封面图片
 
-6. **响应式设计**：
+7. **响应式设计**：
    - 适配不同设备屏幕
    - 科技风界面
 
-7. **API文档**：
+8. **API文档**：
    - 集成Swagger，提供API文档
 
 ## 项目结构
@@ -100,13 +110,32 @@ pm-portfolio-system/
 │   ├── src/                # 前端主要代码
 │   │   ├── components/     # 组件
 │   │   │   ├── CozeModal.vue            # AI结果弹窗
+│   │   │   ├── Dashboard.vue            # 仪表盘组件
 │   │   │   ├── DeleteModal.vue          # 删除确认弹窗
 │   │   │   ├── Header.vue               # 头部组件
+│   │   │   ├── InviteForm.vue           # 邀请表单组件
 │   │   │   ├── Login.vue                # 登录组件
+│   │   │   ├── OrganizationForm.vue     # 组织表单组件
+│   │   │   ├── OrganizationManager.vue  # 组织管理组件
+│   │   │   ├── PackageForm.vue          # 套餐表单组件
+│   │   │   ├── PermissionForm.vue       # 权限表单组件
+│   │   │   ├── PermissionList.vue       # 权限列表组件
+│   │   │   ├── PermissionManager.vue    # 权限管理组件
 │   │   │   ├── ProjectModal.vue         # 作品弹窗
 │   │   │   ├── Projects.vue             # 作品列表组件
 │   │   │   ├── ResumeModal.vue          # 简历弹窗
-│   │   │   └── Resumes.vue              # 简历列表组件
+│   │   │   ├── Resumes.vue              # 简历列表组件
+│   │   │   ├── RoleAssignForm.vue       # 角色分配表单组件
+│   │   │   ├── RoleForm.vue             # 角色表单组件
+│   │   │   ├── RoleList.vue             # 角色列表组件
+│   │   │   ├── RolePermission.vue       # 角色权限组件
+│   │   │   ├── RoleTemplate.vue         # 角色模板组件
+│   │   │   ├── TemplateEditor.vue       # 模板编辑组件
+│   │   │   ├── TemplateManager.vue      # 模板管理组件
+│   │   │   ├── TenantForm.vue           # 租户表单组件
+│   │   │   ├── TenantManager.vue        # 租户管理组件
+│   │   │   ├── UserForm.vue             # 用户表单组件
+│   │   │   └── UserManager.vue          # 用户管理组件
 │   │   ├── assets/         # 静态资源
 │   │   │   └── style.css               # 全局样式
 │   │   ├── utils/           # 工具类
@@ -229,6 +258,7 @@ MIT
 - v1.3.0：新增分类筛选和搜索功能
 - v1.4.0：集成AI功能，支持生成项目信息
 - v1.5.0：优化UI界面，添加必填项标识
+- v1.6.0：新增模板库管理系统，支持模板的添加、编辑、删除、导入、预览和分类管理等功能
 
 ## 联系信息
 

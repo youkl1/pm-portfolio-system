@@ -18,3 +18,9 @@ spring:
 
 server:
   port: 8080
+
+# 存储路径配置
+storage:
+  template:
+    path: d:/temp/templates/  # 本地开发环境
+    # path: /opt/pm-portfolio/templates/  # Linux服务器环境

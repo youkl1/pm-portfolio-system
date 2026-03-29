@@ -4,6 +4,9 @@ import com.pmportfolio.hub.common.PermissionCheck;
 import com.pmportfolio.hub.model.Template;
 import com.pmportfolio.hub.model.TemplateCategory;
 import com.pmportfolio.hub.service.TemplateService;
+
+import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -12,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.*;
+import java.net.URLEncoder;
 import java.util.List;
 import java.util.Map;
 
@@ -67,7 +72,14 @@ public class TemplateController {
             System.out.println("导入成功，模板ID：" + template.getId());
             // 重新加载模板，确保包含分类信息
             Template fullTemplate = templateService.getTemplateById(template.getId());
-            System.out.println("重新加载模板，分类数量：" + (fullTemplate.getCategories() != null ? fullTemplate.getCategories().size() : 0));
+            System.out.println("重新加载模板，分类数量：" + (fullTemplate != null && fullTemplate.getCategories() != null ? fullTemplate.getCategories().size() : 0));
+            if (fullTemplate == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                        "code", 500,
+                        "message", "模板导入成功，但无法加载模板信息",
+                        "data", template
+                ));
+            }
             return ResponseEntity.ok(Map.of(
                     "code", 200,
                     "message", "导入成功",
@@ -87,9 +99,24 @@ public class TemplateController {
     @GetMapping("/download/{id}")
     @PermissionCheck("TEMPLATE_DOWNLOAD")
     public ResponseEntity<?> downloadTemplate(@PathVariable Long id) {
+        // 参数校验
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "模板ID无效",
+                    "data", null
+            ));
+        }
 
         byte[] fileBytes = templateService.downloadTemplate(id);
         Template template = templateService.getTemplateById(id);
+        if (template == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "code", 404,
+                    "message", "模板不存在",
+                    "data", null
+            ));
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
@@ -100,6 +127,14 @@ public class TemplateController {
 
     @GetMapping("/view/{id}")
     public ResponseEntity<?> viewTemplate(@PathVariable Long id) {
+        // 参数校验
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "模板ID无效",
+                    "data", null
+            ));
+        }
 
         Map<String, Object> result = templateService.viewTemplate(id);
 
@@ -112,38 +147,146 @@ public class TemplateController {
 
     @GetMapping("/preview/{id}")
     public ResponseEntity<?> previewTemplate(@PathVariable Long id) {
+        try {
+            // 参数校验
+            if (id == null || id <= 0) {
+                System.out.println("模板ID无效: " + id);
+                return ResponseEntity.badRequest().body(Map.of(
+                        "code", 400,
+                        "message", "模板ID无效",
+                        "data", null
+                ));
+            }
+            
+            // 1. 查询模板
+            System.out.println("开始预览模板，ID: " + id);
+            Template template = templateService.getTemplateById(id);
+            if (template == null) {
+                System.out.println("模板不存在，ID: " + id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "code", 404,
+                        "message", "模板不存在",
+                        "data", null
+                ));
+            }
+            String filePath = template.getFilePath();
+            System.out.println("模板文件路径: " + filePath);
+            File file = new File(filePath);
+            
+            if (!file.exists()) {
+                System.out.println("文件不存在: " + filePath);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "code", 404,
+                        "message", "文件不存在",
+                        "data", null
+                ));
+            }
+            System.out.println("文件存在，大小: " + file.length() + " 字节");
 
-        byte[] fileBytes = templateService.downloadTemplate(id);
-        Template template = templateService.getTemplateById(id);
+            String format = template.getFormat().toLowerCase();
+            System.out.println("预览文件格式: " + format);
+            
+            // 1. PDF 文件：直接输出二进制流
+            if ("pdf".equals(format)) {
+                System.out.println("处理PDF文件: " + filePath);
+                byte[] fileBytes = templateService.downloadTemplate(id);
+                System.out.println("PDF文件大小: " + (fileBytes != null ? fileBytes.length : 0) + " 字节");
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_PDF);
+                headers.setContentDispositionFormData("inline", URLEncoder.encode(template.getName(), "UTF-8") + ".pdf");
+                headers.setContentLength(fileBytes.length);
+                // 添加缓存控制头
+                headers.setCacheControl("no-cache, no-store, must-revalidate");
+                headers.setPragma("no-cache");
+                headers.setExpires(0);
+                System.out.println("返回PDF文件，长度: " + fileBytes.length + " 字节");
+                return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
+            }
+            
+            // 2. 图片文件：直接输出二进制流
+            else if (format.matches("(jpg|jpeg|png|gif|bmp|webp)")) {
+                System.out.println("处理图片文件: " + filePath);
+                byte[] fileBytes = templateService.downloadTemplate(id);
+                System.out.println("图片文件大小: " + (fileBytes != null ? fileBytes.length : 0) + " 字节");
+                HttpHeaders headers = new HttpHeaders();
+                // 根据文件格式设置对应的Content-Type
+                if ("jpg".equals(format) || "jpeg".equals(format)) {
+                    headers.setContentType(MediaType.IMAGE_JPEG);
+                } else if ("png".equals(format)) {
+                    headers.setContentType(MediaType.IMAGE_PNG);
+                } else if ("gif".equals(format)) {
+                    headers.setContentType(MediaType.IMAGE_GIF);
+                } else {
+                    headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                }
+                headers.setContentDispositionFormData("inline", URLEncoder.encode(template.getName(), "UTF-8") + "." + format);
+                headers.setContentLength(fileBytes.length);
+                System.out.println("返回图片文件，长度: " + fileBytes.length + " 字节");
+                return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
+            }
+            
+            // 3. Word 文件：解析并返回HTML内容
+            else if ("docx".equals(format) || "doc".equals(format)) {
+                System.out.println("处理Word文件: " + filePath);
+                try {
+                    // 解析DOCX文件
+                    String htmlContent = templateService.parseDocxFile(file);
+                    System.out.println("Word文件解析成功，HTML长度: " + (htmlContent != null ? htmlContent.length() : 0) + " 字符");
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8));
+                    return new ResponseEntity<>(htmlContent, headers, HttpStatus.OK);
+                } catch (ClassNotFoundException e) {
+                    // 缺少Apache POI依赖，返回基本信息
+                    System.err.println("缺少Apache POI依赖: " + e.getMessage());
+                    Map<String, Object> result = templateService.viewTemplate(id);
+                    return ResponseEntity.ok(Map.of(
+                            "code", 200,
+                            "message", "成功",
+                            "data", result
+                    ));
+                }
+            }
+            
+            // 4. Excel 文件：解析并返回HTML内容
+            else if ("xlsx".equals(format) || "xls".equals(format)) {
+                System.out.println("处理Excel文件: " + filePath);
+                try {
+                    // 解析Excel文件
+                    String htmlContent = templateService.parseExcelFile(file);
+                    System.out.println("Excel文件解析成功，HTML长度: " + (htmlContent != null ? htmlContent.length() : 0) + " 字符");
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(new MediaType("text", "html", java.nio.charset.StandardCharsets.UTF_8));
+                    return new ResponseEntity<>(htmlContent, headers, HttpStatus.OK);
+                } catch (ClassNotFoundException e) {
+                    // 缺少Apache POI依赖，返回基本信息
+                    System.err.println("缺少Apache POI依赖: " + e.getMessage());
+                    Map<String, Object> result = templateService.viewTemplate(id);
+                    return ResponseEntity.ok(Map.of(
+                            "code", 200,
+                            "message", "成功",
+                            "data", result
+                    ));
+                }
+            }
 
-        // 根据文件格式设置不同的Content-Type
-        MediaType mediaType;
-        String format = template.getFormat().toLowerCase();
-        switch (format) {
-            case "jpg":
-            case "jpeg":
-                mediaType = MediaType.IMAGE_JPEG;
-                break;
-            case "png":
-                mediaType = MediaType.IMAGE_PNG;
-                break;
-            case "gif":
-                mediaType = MediaType.IMAGE_GIF;
-                break;
-            case "webp":
-                mediaType = MediaType.parseMediaType("image/webp");
-                break;
-            case "bmp":
-                mediaType = MediaType.parseMediaType("image/bmp");
-                break;
-            default:
-                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            // 4. 其他文件：使用viewTemplate方法的逻辑
+            System.out.println("处理其他格式文件: " + format);
+            Map<String, Object> result = templateService.viewTemplate(id);
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "成功",
+                    "data", result
+            ));
+
+        } catch (Exception e) {
+            System.err.println("预览失败: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "code", 500,
+                    "message", "预览失败：" + e.getMessage(),
+                    "data", null
+            ));
         }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(mediaType);
-
-        return new ResponseEntity<>(fileBytes, headers, HttpStatus.OK);
     }
 
     @PutMapping("/edit/{id}")
@@ -152,6 +295,14 @@ public class TemplateController {
             @PathVariable Long id,
             @RequestBody Map<String, Object> request,
             @RequestAttribute("userId") Long userId) {
+        // 参数校验
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "模板ID无效",
+                    "data", null
+            ));
+        }
 
         String content = (String) request.get("content");
         String name = (String) request.get("name");
@@ -193,6 +344,15 @@ public class TemplateController {
     @DeleteMapping("/delete/{id}")
     @PermissionCheck("TEMPLATE_EDIT")
     public ResponseEntity<?> deleteTemplate(@PathVariable Long id) {
+        // 参数校验
+        if (id == null || id <= 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "code", 400,
+                    "message", "模板ID无效",
+                    "data", null
+            ));
+        }
+        
         System.out.println("开始删除模板，ID: " + id);
         
         try {
@@ -209,6 +369,37 @@ public class TemplateController {
             Map<String, Object> errorResponse = new java.util.HashMap<>();
             errorResponse.put("code", 500);
             errorResponse.put("message", "删除失败：" + e.getMessage());
+            errorResponse.put("data", null);
+            return ResponseEntity.ok(errorResponse);
+        }
+    }
+    
+    @PostMapping("/update-attachment")
+    @PermissionCheck("TEMPLATE_EDIT")
+    public ResponseEntity<?> updateAttachment(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("templateId") Long templateId,
+            @RequestAttribute("userId") Long userId) {
+        System.out.println("开始更新附件：");
+        System.out.println("模板ID：" + templateId);
+        System.out.println("文件名：" + file.getOriginalFilename());
+        System.out.println("文件大小：" + file.getSize());
+        System.out.println("用户ID：" + userId);
+        
+        try {
+            Template template = templateService.updateAttachment(file, templateId, userId);
+            System.out.println("更新附件成功，模板ID：" + template.getId());
+            return ResponseEntity.ok(Map.of(
+                    "code", 200,
+                    "message", "更新成功",
+                    "data", template
+            ));
+        } catch (Exception e) {
+            System.err.println("更新附件失败：" + e.getMessage());
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new java.util.HashMap<>();
+            errorResponse.put("code", 500);
+            errorResponse.put("message", "更新失败：" + e.getMessage());
             errorResponse.put("data", null);
             return ResponseEntity.ok(errorResponse);
         }

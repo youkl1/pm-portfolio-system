@@ -5,6 +5,7 @@
       :loginForm="loginForm"
       :captchaImage="captchaImage"
       :errorMessage="errorMessage"
+      :loginLoading="loginLoading"
       @login="login"
       @get-captcha="getCaptcha"
     />
@@ -177,6 +178,7 @@ export default {
       },
       captchaImage: '',
       errorMessage: '',
+      loginLoading: false,
       projects: [],
       categories: [],
       selectedCategoryIds: [],
@@ -268,6 +270,7 @@ export default {
     
     // 登录
     async login() {
+      this.loginLoading = true
       try {
         const response = await apiClient.post('/api/auth/login', this.loginForm)
         if (response.data.code === 200) {
@@ -285,6 +288,8 @@ export default {
         this.errorMessage = '登录失败，请重试'
         // 登录失败时重新获取验证码
         this.getCaptcha()
+      } finally {
+        this.loginLoading = false
       }
     },
     

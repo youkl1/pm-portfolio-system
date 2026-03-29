@@ -3,23 +3,15 @@ package com.pmportfolio.hub.test;
 import com.pmportfolio.hub.service.UserRoleService;
 import com.pmportfolio.hub.service.RoleService;
 import com.pmportfolio.hub.model.Role;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 
-@Component
-public class UserRoleTest implements CommandLineRunner {
+public class UserRoleTest {
 
-    @Autowired
     private UserRoleService userRoleService;
 
-    @Autowired
     private RoleService roleService;
 
-    @Override
-    public void run(String... args) throws Exception {
+    public void testUserRoles() {
         // 测试获取用户角色
         System.out.println("=== 测试获取用户角色 ===");
         try {

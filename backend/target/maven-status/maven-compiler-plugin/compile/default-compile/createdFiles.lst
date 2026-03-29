@@ -6,6 +6,7 @@ com\pmportfolio\hub\repository\TemplateRepository.class
 com\pmportfolio\hub\repository\PermissionRepository.class
 com\pmportfolio\hub\controller\OrganizationController.class
 com\pmportfolio\hub\repository\UserOrganizationRepository.class
+com\pmportfolio\hub\service\impl\TemplateServiceImpl$1.class
 com\pmportfolio\hub\common\ThreadLocalUtil$UserInfo.class
 com\pmportfolio\hub\model\Template.class
 com\pmportfolio\hub\controller\ResumeController.class
